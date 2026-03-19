@@ -50,10 +50,14 @@ export const register = asyncHandler(async(req,res)=>{
         verificationStatus: "pending"
     })
     const token = generateToken(user._id)
+
+    const safeUser = user.toObject()
+    delete safeUser.passwordHash
+
     return res.status(201)
     .cookie("token", token, cookieOptions)
     .json(new ApiResponse(201,{
-        user,
+        user:safeUser,
         token
     },"Registration successful. Awaiting verification."))
 })
@@ -63,7 +67,7 @@ export const login = asyncHandler(async(req,res)=>{
     const { email, password } = req.body
     
     if(!email||!password) {
-        throw new ApiError(401,"Email or password missing")
+        throw new ApiError(400,"Email or password missing")
     }
 
     const user = await User.findOne({email})
@@ -93,5 +97,11 @@ export const getMe= asyncHandler(async(req,res)=>{
     const user = await User.findById(req.user.id).select("-passwordHash")
     
 
-    return res.status(200,user,"User fetched successfully")
+    return res.status(200).json(
+        new ApiResponse(
+        200,
+        user,
+        "User fetched successfully"
+    )
+  )
 })
