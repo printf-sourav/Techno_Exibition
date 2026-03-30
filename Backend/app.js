@@ -3,7 +3,7 @@ import cors from "cors";
 import errorHandler from "./src/utils/errorHandler.js";
 import notificationRoutes from "./src/routes/notifications.routes.js";
 import authRoutes from "./src/routes/auth.routes.js";
-import inventoryRoutes from "./src/routes/inventory.routes.js";
+import marketplaceRoutes from "./src/routes/marketplace.routes.js";
 
 
 const app = express();
@@ -15,7 +15,7 @@ app.get("/", (req, res) => {
 });
 app.use("/notifications", notificationRoutes);
 app.use("/api/auth", authRoutes);
-app.use("/api/inventory", inventoryRoutes);
+app.use("/api/marketplace", marketplaceRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
