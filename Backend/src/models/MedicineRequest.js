@@ -1,28 +1,36 @@
 import mongoose from "mongoose";
+
 const medicineRequestSchema = new mongoose.Schema(
-{
-  hospitalId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
-  },
-  medicineName: {
-    type: String,
-    required: true
-  },
-  quantity: Number,
-  priority: {
-    type: String,
-    enum: ["low","medium","high"],
-    default: "medium"
-  },
-  notes: String,
-  status: {
-    type: String,
-    enum: ["pending","matched","accepted","rejected","completed"],
-    default: "pending"
-  }
-},
-{ timestamps: true }
+	{
+		hospitalId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "User",
+			required: true,
+		},
+		medicineName: {
+			type: String,
+			required: true,
+		},
+		quantity: {
+			type: Number,
+			required: true,
+			min: 1,
+		},
+		priority: {
+			type: String,
+			enum: ["low", "medium", "high"],
+			default: "medium",
+		},
+		status: {
+			type: String,
+			enum: ["pending", "matched", "accepted", "rejected", "completed"],
+			default: "pending",
+		},
+	},
+	{ timestamps: true }
 );
-export default mongoose.model("MedicineRequest", medicineRequestSchema);
+
+const MedicineRequest =
+	mongoose.models.MedicineRequest || mongoose.model("MedicineRequest", medicineRequestSchema);
+
+export default MedicineRequest;
