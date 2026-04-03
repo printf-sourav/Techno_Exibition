@@ -6,7 +6,7 @@ import {
   markRead
 } from "../controllers/notifications.controller.js";
 const router = express.Router();
-router.post("/",createNotification);
+router.post("/", authMiddleware, createNotification);
 router.get("/", authMiddleware, getNotifications);
-router.put("/:id", markRead);
+router.put("/:id", authMiddleware, markRead);
 export default router;
