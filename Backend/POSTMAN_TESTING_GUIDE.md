@@ -21,6 +21,17 @@ This guide helps you test:
   - one normal user for approval/rejection test
 4. One `InventoryItem` exists for the retailer with quantity > 0
 
+Recommended test credentials:
+
+| Role | Name | Email | Password |
+| --- | --- | --- | --- |
+| Retailer | Retailer One | retailer@example.com | Password@123 |
+| Hospital | City Hospital | hospital@example.com | Password@123 |
+| NGO | Hope NGO | ngo@example.com | Password@123 |
+| Admin | System Admin | admin@example.com | Admin@123 |
+| Requester User | Store Manager | requester@example.com | Password@123 |
+| Normal User (pending/approval test) | Test User | user@example.com | Password@123 |
+
 Note: `POST /api/auth/register` currently creates users with role `retailer` by default, so create other roles directly in DB or from your admin/seed flow.
 
 ## 2. Create Postman Environment
@@ -33,6 +44,7 @@ Create an environment named `MediSync Local` with:
 - `ngoToken`
 - `adminToken`
 - `requesterToken`
+- `normalUserToken`
 - `ngoUserId`
 - `wasteAgencyId`
 - `inventoryItemId`
@@ -73,9 +85,27 @@ pm.environment.set("ngoUserId", pm.response.json().data.user._id);
 
 ### 3.3 Login Admin
 
+Use admin credentials:
+
+```json
+{
+  "email": "admin@example.com",
+  "password": "Admin@123"
+}
+```
+
 Store as `adminToken`.
 
 ### 3.4 Login Requester (pickup creator)
+
+Use requester credentials:
+
+```json
+{
+  "email": "requester@example.com",
+  "password": "Password@123"
+}
+```
 
 Store as `requesterToken`.
 
@@ -83,9 +113,29 @@ Store as `requesterToken`.
 
 Use hospital credentials, store as `hospitalToken`:
 
+```json
+{
+  "email": "hospital@example.com",
+  "password": "Password@123"
+}
+```
+
 ```javascript
 pm.environment.set("hospitalToken", pm.response.json().data.token);
 ```
+
+### 3.6 Login Normal User (for admin approval/rejection notification test)
+
+Use normal user credentials:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "Password@123"
+}
+```
+
+Store as `normalUserToken`.
 
 ## 4. Donations + NGO Need Flow
 
@@ -290,7 +340,7 @@ Login as that user and call:
 
 - Method: `GET`
 - URL: `{{baseUrl}}/notifications`
-- Header: `Authorization: Bearer <that-user-token>`
+- Header: `Authorization: Bearer {{normalUserToken}}`
 
 Expected:
 

@@ -20,6 +20,7 @@ app.get("/", (req, res) => {
 app.use("/notifications", notificationRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.use("/notifications", notificationRoutes);
 app.use("/api/auth", authRoutes);
