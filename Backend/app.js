@@ -3,6 +3,7 @@ import cors from "cors";
 import errorHandler from "./src/utils/errorHandler.js";
 import notificationRoutes from "./src/routes/notifications.routes.js";
 import authRoutes from "./src/routes/auth.routes.js";
+import inventoryRoutes from "./src/routes/inventory.routes.js";
 import donationRoutes from "./src/routes/donations.routes.js";
 import wasteRoutes from "./src/routes/waste.routes.js";
 import adminRoutes from "./src/routes/admin.routes.js";
@@ -15,6 +16,9 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.send("API running");
 });
+app.use("/notifications", notificationRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.use("/notifications", notificationRoutes);
 app.use("/api/auth", authRoutes);
@@ -28,6 +32,7 @@ app.use((req, res) => {
     message: "Route not found",
   });
 });
+
 
 app.use(errorHandler);
 
