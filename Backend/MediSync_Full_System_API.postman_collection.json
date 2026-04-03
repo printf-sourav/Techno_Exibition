@@ -1,0 +1,674 @@
+{
+  "info": {
+    "name": "MediSync Full System API",
+    "_postman_id": "full-system-001",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+
+    { "key": "retailerToken", "value": "" },
+    { "key": "hospitalToken", "value": "" },
+    { "key": "ngoToken", "value": "" },
+    { "key": "wasteToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+
+    { "key": "retailerUserId", "value": "" },
+    { "key": "hospitalUserId", "value": "" },
+    { "key": "ngoUserId", "value": "" },
+    { "key": "wasteUserId", "value": "" },
+
+    { "key": "inventoryItemId", "value": "" },
+    { "key": "offerId", "value": "" },
+    { "key": "requestId", "value": "" },
+    { "key": "needId", "value": "" },
+    { "key": "donationId", "value": "" },
+    { "key": "pickupId", "value": "" },
+    { "key": "notificationId", "value": "" },
+    { "key": "pendingUserId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. HEALTH",
+      "item": [
+        {
+          "name": "API Health",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "1. AUTH (REGISTER + LOGIN)",
+      "item": [
+        {
+          "name": "Register Retailer",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Retailer", "type": "text" },
+                { "key": "email", "value": "retailer@test.com", "type": "text" },
+                { "key": "password", "value": "123456", "type": "text" },
+                { "key": "role", "value": "retailer", "type": "text" },
+                { "key": "organizationName", "value": "Pharma", "type": "text" },
+                { "key": "licenseNumber", "value": "LIC123", "type": "text" },
+                { "key": "gstNumber", "value": "GST123", "type": "text" },
+                { "key": "address", "value": "Bangalore", "type": "text" },
+                { "key": "phone", "value": "9999999999", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Register Hospital",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Hospital User", "type": "text" },
+                { "key": "email", "value": "hospital@test.com", "type": "text" },
+                { "key": "password", "value": "123456", "type": "text" },
+                { "key": "role", "value": "hospital", "type": "text" },
+                { "key": "organizationName", "value": "City Hospital", "type": "text" },
+                { "key": "registrationNumber", "value": "HREG-001", "type": "text" },
+                { "key": "address", "value": "Bangalore", "type": "text" },
+                { "key": "phone", "value": "9999999998", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Register NGO",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "NGO User", "type": "text" },
+                { "key": "email", "value": "ngo@test.com", "type": "text" },
+                { "key": "password", "value": "123456", "type": "text" },
+                { "key": "role", "value": "ngo", "type": "text" },
+                { "key": "organizationName", "value": "Helping Hands", "type": "text" },
+                { "key": "registrationNumber", "value": "NGO-001", "type": "text" },
+                { "key": "address", "value": "Delhi", "type": "text" },
+                { "key": "phone", "value": "9999999997", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Register Waste",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Waste User", "type": "text" },
+                { "key": "email", "value": "waste@test.com", "type": "text" },
+                { "key": "password", "value": "123456", "type": "text" },
+                { "key": "role", "value": "waste", "type": "text" },
+                { "key": "organizationName", "value": "Waste Agency", "type": "text" },
+                { "key": "licenseNumber", "value": "WASTE-001", "type": "text" },
+                { "key": "serviceArea", "value": "Bangalore", "type": "text" },
+                { "key": "address", "value": "Bangalore", "type": "text" },
+                { "key": "phone", "value": "9999999996", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/auth/register"
+          }
+        },
+        {
+          "name": "Login Retailer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"retailer@test.com\",\"password\":\"123456\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.token) { pm.environment.set('retailerToken', res.data.token); }",
+                  "if (res.data && res.data.user && res.data.user._id) { pm.environment.set('retailerUserId', res.data.user._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Hospital",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"hospital@test.com\",\"password\":\"123456\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.token) { pm.environment.set('hospitalToken', res.data.token); }",
+                  "if (res.data && res.data.user && res.data.user._id) { pm.environment.set('hospitalUserId', res.data.user._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login NGO",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"ngo@test.com\",\"password\":\"123456\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.token) { pm.environment.set('ngoToken', res.data.token); }",
+                  "if (res.data && res.data.user && res.data.user._id) { pm.environment.set('ngoUserId', res.data.user._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login Waste",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"waste@test.com\",\"password\":\"123456\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.token) { pm.environment.set('wasteToken', res.data.token); }",
+                  "if (res.data && res.data.user && res.data.user._id) { pm.environment.set('wasteUserId', res.data.user._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Me Retailer",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. INVENTORY",
+      "item": [
+        {
+          "name": "Add Inventory",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Paracetamol\",\"batchNumber\":\"B123\",\"quantity\":100,\"expiryDate\":\"2026-04-10\",\"mrp\":50}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/inventory"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data._id) { pm.environment.set('inventoryItemId', res.data._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Inventory",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/inventory"
+          }
+        },
+        {
+          "name": "Update Inventory",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"quantity\":90}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/inventory/{{inventoryItemId}}"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "3. MARKETPLACE",
+      "item": [
+        {
+          "name": "Create Offer",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"inventoryItemId\":\"{{inventoryItemId}}\",\"medicineName\":\"Paracetamol\",\"batchNumber\":\"B123\",\"quantity\":20,\"pricePerPacket\":20}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/marketplace/offers"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data._id) { pm.environment.set('offerId', res.data._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hospital Get Medicines",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{hospitalToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/marketplace/medicines"
+          }
+        },
+        {
+          "name": "Hospital Get Incoming Offers",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{hospitalToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/marketplace/offers/incoming"
+          }
+        },
+        {
+          "name": "Hospital Accept Offer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{hospitalToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/marketplace/offers/{{offerId}}/accept"
+          }
+        },
+        {
+          "name": "Hospital Create Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{hospitalToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"medicineName\":\"ORS\",\"quantity\":30,\"priority\":\"high\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/marketplace/requests"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data._id) { pm.environment.set('requestId', res.data._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Retailer Get Requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/marketplace/requests"
+          }
+        },
+        {
+          "name": "Retailer Supply Request",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"inventoryItemId\":\"{{inventoryItemId}}\",\"quantity\":10,\"pricePerPacket\":18}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/marketplace/requests/{{requestId}}/supply"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "4. DONATIONS",
+      "item": [
+        {
+          "name": "Create NGO Need",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ngoToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"medicineName\":\"ORS\",\"quantity\":100,\"urgency\":\"high\",\"location\":\"Delhi\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/donations/needs"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data._id) { pm.environment.set('needId', res.data._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Needs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/donations/needs"
+          }
+        },
+        {
+          "name": "Donate",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{retailerToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"recipientNgoId\":\"{{ngoUserId}}\",\"inventoryItemId\":\"{{inventoryItemId}}\",\"ngoNeedId\":\"{{needId}}\",\"quantity\":20}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/donations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data._id) { pm.environment.set('donationId', res.data._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Donations NGO",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ngoToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/donations"
+          }
+        },
+        {
+          "name": "Mark Donation Distributed",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ngoToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/donations/{{donationId}}/distribute"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "5. WASTE",
+      "item": [
+        {
+          "name": "Create Pickup",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{hospitalToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"wasteType\":\"expired\",\"amount\":5,\"unit\":\"kg\",\"pickupDate\":\"2026-04-10\",\"location\":\"Hospital\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/waste/pickups"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data._id) { pm.environment.set('pickupId', res.data._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Pickups Waste",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{wasteToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/waste/pickups"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "6. NOTIFICATIONS",
+      "item": [
+        {
+          "name": "Get NGO Notifications",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ngoToken}}" }
+            ],
+            "url": "{{baseUrl}}/notifications"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) { pm.environment.set('notificationId', res.data[0]._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{ngoToken}}" }
+            ],
+            "url": "{{baseUrl}}/notifications/{{notificationId}}"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "7. ADMIN",
+      "item": [
+        {
+          "name": "Login Admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\":\"admin@test.com\",\"password\":\"123456\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/auth/login"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.token) { pm.environment.set('adminToken', res.data.token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Pending Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/admin/users/pending"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) { pm.environment.set('pendingUserId', res.data[0]._id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve User",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": "{{baseUrl}}/api/admin/users/{{pendingUserId}}/approve"
+          }
+        },
+        {
+          "name": "Assign Waste Pickup",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"agencyId\":\"{{wasteUserId}}\"}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/api/admin/waste/pickups/{{pickupId}}/assign"
+          }
+        }
+      ]
+    }
+  ]
+}

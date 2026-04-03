@@ -11,17 +11,63 @@ const cookieOptions = {
   sameSite: "lax",
 };
 
+const publicRegistrationRoles = new Set(["retailer", "hospital", "ngo", "waste"])
+
+const isBlank = (value) => value === undefined || value === null || String(value).trim() === ""
+
 export const register = asyncHandler(async(req,res)=>{
+    const payload = req.body && typeof req.body === "object" ? req.body : {}
+
     const {
-      name,
-      email,
-      password,
-      organizationName,
-      licenseNumber,
-      gstNumber,
-      address,
-      phone
-    } = req.body
+        name,
+        email,
+        password,
+        role,
+        organizationName,
+        licenseNumber,
+        gstNumber,
+        registrationNumber,
+        hospitalRegNumber,
+        ngoRegNumber,
+        cpcbLicense,
+        serviceArea,
+        address,
+        phone,
+        contactNumber
+    } = payload
+
+    const requestedRole = String(role || "").trim().toLowerCase()
+
+    if (!publicRegistrationRoles.has(requestedRole)) {
+        throw new ApiError(400, "Role must be one of retailer, hospital, ngo, waste")
+    }
+
+    if (
+        isBlank(name) ||
+        isBlank(email) ||
+        isBlank(password) ||
+        isBlank(organizationName) ||
+        isBlank(address) ||
+        (isBlank(phone) && isBlank(contactNumber))
+    ) {
+        throw new ApiError(400, "Missing required registration fields")
+    }
+
+    if (requestedRole === "retailer" && (isBlank(licenseNumber) || isBlank(gstNumber))) {
+        throw new ApiError(400, "Retailer registration requires licenseNumber and gstNumber")
+    }
+
+    if (requestedRole === "hospital" && isBlank(hospitalRegNumber) && isBlank(registrationNumber)) {
+        throw new ApiError(400, "Hospital registration requires registrationNumber")
+    }
+
+    if (requestedRole === "ngo" && isBlank(ngoRegNumber) && isBlank(registrationNumber)) {
+        throw new ApiError(400, "NGO registration requires registrationNumber")
+    }
+
+    if (requestedRole === "waste" && (isBlank(cpcbLicense) && isBlank(licenseNumber))) {
+        throw new ApiError(400, "Waste registration requires licenseNumber")
+    }
 
     const existingUser = await User.findOne({email});
     if(existingUser) {
@@ -30,25 +76,46 @@ export const register = asyncHandler(async(req,res)=>{
 
     const hashedPassword = await bcrypt.hash(password,10)
 
-    let licenseCertificateUrl = ""
+    const certificateFile =
+        req.file ||
+        req.files?.licenseCertificate?.[0] ||
+        req.files?.registrationCertificate?.[0] ||
+        req.files?.authorizationCertificate?.[0]
 
-    if(req.file){
-        licenseCertificateUrl=req.file.path
-    }
+    const licenseCertificateUrl = certificateFile?.path || ""
 
-    const user = await User.create({
+    const userPayload = {
         name,
         email,
         passwordHash: hashedPassword,
-        role: "retailer",
+        role: requestedRole,
         organizationName,
-        licenseNumber,
-        gstNumber,
         licenseCertificateUrl,
         address,
-        phone,
+        phone: phone || contactNumber,
         verificationStatus: "pending"
-    })
+    }
+
+    if (requestedRole === "retailer") {
+        userPayload.licenseNumber = licenseNumber
+        userPayload.gstNumber = gstNumber
+    }
+
+    if (requestedRole === "hospital") {
+        userPayload.hospitalRegNumber = hospitalRegNumber || registrationNumber
+    }
+
+    if (requestedRole === "ngo") {
+        userPayload.ngoRegNumber = ngoRegNumber || registrationNumber
+    }
+
+    if (requestedRole === "waste") {
+        userPayload.cpcbLicense = cpcbLicense || licenseNumber
+        userPayload.serviceArea = serviceArea
+        userPayload.licenseNumber = licenseNumber
+    }
+
+    const user = await User.create(userPayload)
     const token = generateToken(user._id)
 
     const safeUser = user.toObject()
@@ -63,8 +130,8 @@ export const register = asyncHandler(async(req,res)=>{
 })
 
 export const login = asyncHandler(async(req,res)=>{
-
-    const { email, password } = req.body
+    const payload = req.body && typeof req.body === "object" ? req.body : {}
+    const { email, password } = payload
     
     if(!email||!password) {
         throw new ApiError(400,"Email or password missing")
