@@ -31,8 +31,6 @@ export function DonateToNGOModal({ isOpen, onClose, medicine, onDonated }: Donat
   const [loadingNeeds, setLoadingNeeds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!medicine) return null;
-
   useEffect(() => {
     if (!isOpen || !token) {
       return;
@@ -59,7 +57,10 @@ export function DonateToNGOModal({ isOpen, onClose, medicine, onDonated }: Donat
     [openNeeds, selectedNeedId]
   );
 
-  const isQuantityValid = Number(donationPackets) > 0 && Number(donationPackets) <= medicine.quantity;
+  const availableQuantity = medicine?.quantity ?? 0;
+  const isQuantityValid = Number(donationPackets) > 0 && Number(donationPackets) <= availableQuantity;
+
+  if (!medicine) return null;
 
   const getNgoId = (need: NgoNeed) => {
     if (typeof need.ngoId === 'string') {
@@ -183,13 +184,13 @@ export function DonateToNGOModal({ isOpen, onClose, medicine, onDonated }: Donat
                     placeholder="Enter quantity to donate"
                     className="pl-10"
                     min="1"
-                    max={medicine.quantity}
+                    max={availableQuantity}
                   />
                 </div>
                 {donationPackets && !isQuantityValid && (
                   <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
-                    Quantity must be between 1 and {medicine.quantity}
+                    Quantity must be between 1 and {availableQuantity}
                   </p>
                 )}
               </div>

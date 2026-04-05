@@ -7,6 +7,7 @@ import {
   createRequest,
   getIncomingOffers,
   getMedicines,
+  getRetailerOffers,
   getRequests,
   supplyRequest,
 } from "../controllers/marketplace.controller.js";
@@ -14,6 +15,7 @@ import {
 const router = express.Router();
 
 router.post("/offers", authMiddleware, rolesallowed("retailer"), createOffer);
+router.get("/offers/mine", authMiddleware, rolesallowed("retailer"), getRetailerOffers);
 router.get("/medicines", authMiddleware, rolesallowed("hospital"), getMedicines);
 router.get("/offers/incoming", authMiddleware, rolesallowed("hospital"), getIncomingOffers);
 router.patch("/offers/:id/accept", authMiddleware, rolesallowed("hospital"), acceptOffer);

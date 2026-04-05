@@ -21,6 +21,12 @@ type SellToHospitalModalProps = {
   isOpen: boolean;
   onClose: () => void;
   medicine: Medicine | null;
+  onOfferCreated?: () => void | Promise<void>;
+};
+
+const toFiniteNumber = (value: unknown, fallback = 0) => {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
 const nearbyHospitals = [
@@ -30,7 +36,7 @@ const nearbyHospitals = [
   { id: 4, name: 'Metro Hospital', distance: '5.2 km' },
 ];
 
-export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospitalModalProps) {
+export function SellToHospitalModal({ isOpen, onClose, medicine, onOfferCreated }: SellToHospitalModalProps) {
   const { token } = useAuth();
   const [packets, setPackets] = useState('');
   const [pricePerPacket, setPricePerPacket] = useState('');
@@ -38,12 +44,15 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
 
   if (!medicine) return null;
 
-  const mrp = medicine.mrp || 150;
-  const gst = medicine.gst || 18;
+  const availableQuantity = Math.max(0, toFiniteNumber(medicine.quantity));
+  const mrp = toFiniteNumber(medicine.mrp, 150);
+  const gst = toFiniteNumber(medicine.gst, 18);
+  const packetCount = toFiniteNumber(packets);
+  const unitPrice = toFiniteNumber(pricePerPacket);
   const maxPrice = mrp + (mrp * gst / 100);
-  const totalPrice = Number(packets) * Number(pricePerPacket);
-  const isPriceValid = Number(pricePerPacket) > 0 && Number(pricePerPacket) <= maxPrice;
-  const isQuantityValid = Number(packets) > 0 && Number(packets) <= medicine.quantity;
+  const totalPrice = packetCount * unitPrice;
+  const isPriceValid = unitPrice > 0 && unitPrice <= maxPrice;
+  const isQuantityValid = packetCount > 0 && packetCount <= availableQuantity;
 
   const handleConfirm = async () => {
     if (!isPriceValid || !isQuantityValid) {
@@ -63,8 +72,8 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
         inventoryItemId: medicine.id,
         medicineName: medicine.name,
         batchNumber: medicine.batch,
-        quantity: Number(packets),
-        pricePerPacket: Number(pricePerPacket),
+        quantity: packetCount,
+        pricePerPacket: unitPrice,
       });
 
       toast.success('Offer published in hospital marketplace', {
@@ -75,6 +84,7 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
       onClose();
       setPackets('');
       setPricePerPacket('');
+      await onOfferCreated?.();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create offer';
       toast.error(message);
@@ -132,7 +142,7 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
                   </div>
                   <div>
                     <p className="text-gray-500">Available Quantity</p>
-                    <p className="font-medium">{medicine.quantity} packets</p>
+                    <p className="font-medium">{availableQuantity} packets</p>
                   </div>
                   <div>
                     <p className="text-gray-500">Max Price</p>
@@ -154,13 +164,13 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
                     placeholder="Enter quantity"
                     className="pl-10"
                     min="1"
-                    max={medicine.quantity}
+                    max={availableQuantity}
                   />
                 </div>
                 {packets && !isQuantityValid && (
                   <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
                     <AlertCircle className="w-3 h-3" />
-                    Quantity must be between 1 and {medicine.quantity}
+                    Quantity must be between 1 and {availableQuantity}
                   </p>
                 )}
               </div>

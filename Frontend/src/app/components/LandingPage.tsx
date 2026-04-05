@@ -11,25 +11,25 @@ const problemCards = [
     icon: AlertCircle,
     title: 'Expired Medicines',
     description: 'Billions worth of medicines expire annually in retail pharmacies',
-    color: 'from-red-500/20 to-orange-500/20',
+    color: 'from-[#2EFCDC]/35 to-[#00D6D0]/22',
   },
   {
     icon: Package,
     title: 'Unsold Inventory',
     description: 'Overstocked medicines create financial losses for retailers',
-    color: 'from-amber-500/20 to-yellow-500/20',
+    color: 'from-[#00D6D0]/30 to-[#00B0BC]/22',
   },
   {
     icon: TrendingDown,
     title: 'Compliance Penalties',
     description: 'Regulatory fines for improper medicine disposal practices',
-    color: 'from-purple-500/20 to-pink-500/20',
+    color: 'from-[#00B0BC]/30 to-[#188CA0]/22',
   },
   {
     icon: Leaf,
     title: 'Environmental Pollution',
     description: 'Pharmaceutical waste contaminates water and soil ecosystems',
-    color: 'from-green-500/20 to-teal-500/20',
+    color: 'from-[#188CA0]/30 to-[#2D697E]/24',
   },
 ];
 
@@ -63,11 +63,11 @@ const workflowSteps = [
 
 export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-cyan-50/30 to-teal-50/40 relative">
+    <div className="min-h-screen clay-bg relative">
       <BackgroundEffects />
       {/* Hero Section */}
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/50 to-white pointer-events-none z-10" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/40 to-[#edf4f7] pointer-events-none z-10" />
         
         <div className="container mx-auto px-6 pt-20 pb-32">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -77,11 +77,11 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
               transition={{ duration: 0.8 }}
               className="z-20"
             >
-              <div className="inline-block px-4 py-2 bg-teal-500/10 backdrop-blur-sm rounded-full mb-6">
-                <span className="text-sm text-teal-600">Medisync Platform</span>
+              <div className="inline-block px-4 py-2 clay-sm !rounded-full mb-6">
+                <span className="text-sm font-semibold text-[#188CA0]">⚕️ MediSync Platform</span>
               </div>
               
-              <h1 className="text-5xl lg:text-6xl mb-6 bg-gradient-to-r from-gray-900 via-teal-800 to-cyan-700 bg-clip-text text-transparent">
+              <h1 className="text-5xl lg:text-6xl font-extrabold mb-6 bg-gradient-to-r from-[#2F4858] via-[#2D697E] to-[#188CA0] bg-clip-text text-transparent">
                 Eliminating Medicine Waste with Intelligent Redistribution
               </h1>
               
@@ -93,7 +93,7 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
                 <Button
                   size="lg"
                   onClick={() => onNavigate('login')}
-                  className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white px-8 py-6 text-lg shadow-lg shadow-teal-500/30"
+                  className="clay-btn bg-gradient-to-r from-[#00B0BC] via-[#188CA0] to-[#2D697E] hover:brightness-110 text-white px-8 py-6 text-lg font-bold !border-none"
                 >
                   Get Started
                 </Button>
@@ -103,7 +103,7 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
                   onClick={() => {
                     document.getElementById('workflow')?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className="border-2 border-teal-500/30 text-teal-700 hover:bg-teal-50 px-8 py-6 text-lg"
+                  className="clay-btn border-2 border-[#188CA0]/35 text-[#2D697E] hover:bg-[#2EFCDC]/15 px-8 py-6 text-lg"
                 >
                   See Workflow
                 </Button>
@@ -116,7 +116,7 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
               transition={{ duration: 1 }}
               className="relative"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-teal-500/20 to-cyan-500/20 blur-3xl rounded-full" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#2EFCDC]/28 to-[#00B0BC]/22 blur-3xl rounded-full" />
               <AnimatedHero />
             </motion.div>
           </div>
@@ -150,15 +150,15 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
               transition={{ duration: 0.5, delay: index * 0.1 }}
               viewport={{ once: true }}
               whileHover={{ y: -8, transition: { duration: 0.2 } }}
-              className={`relative group bg-white/90 backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100`}
+              className="relative group clay p-6 hover:translate-y-[-4px] transition-all duration-300 cursor-pointer"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${card.color} rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
               
               <div className="relative z-10">
-                <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                  <card.icon className="w-7 h-7 text-white" />
+                <div className="w-14 h-14 clay-teal rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                  <card.icon className="w-7 h-7 text-teal-700" />
                 </div>
-                <h3 className="text-xl mb-3">{card.title}</h3>
+                <h3 className="text-xl font-bold mb-3">{card.title}</h3>
                 <p className="text-gray-600">{card.description}</p>
               </div>
             </motion.div>
@@ -190,21 +190,21 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
               className="relative"
             >
               {index < workflowSteps.length - 1 && (
-                <div className="absolute left-8 top-20 w-0.5 h-full bg-gradient-to-b from-teal-500 to-cyan-500 -z-10" />
+                <div className="absolute left-8 top-20 w-0.5 h-full bg-gradient-to-b from-[#00D6D0] via-[#00B0BC] to-[#2D697E] -z-10" />
               )}
               
               <div className="flex gap-6 mb-12">
                 <div className="flex-shrink-0">
-                  <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white text-2xl shadow-lg shadow-teal-500/30">
+                  <div className="w-16 h-16 bg-gradient-to-br from-[#2EFCDC] to-[#00B0BC] rounded-full flex items-center justify-center text-[#2D697E] text-2xl font-extrabold shadow-[0_10px_24px_rgba(24,140,160,0.24)]">
                     {step.number}
                   </div>
                 </div>
                 
-                <div className="flex-1 bg-white backdrop-blur-xl rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 group hover:border-teal-200">
-                  <h3 className="text-2xl mb-2 group-hover:text-teal-600 transition-colors">
+                <div className="flex-1 clay p-6 group hover:translate-y-[-2px] transition-all duration-300">
+                  <h3 className="text-2xl mb-2 text-[#2F4858] group-hover:text-[#188CA0] transition-colors">
                     {step.title}
                   </h3>
-                  <p className="text-gray-600">{step.description}</p>
+                  <p className="text-[#4A6978]">{step.description}</p>
                 </div>
               </div>
             </motion.div>
@@ -221,7 +221,7 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
           <Button
             size="lg"
             onClick={() => onNavigate('dashboard')}
-            className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white px-10 py-6 text-lg shadow-lg shadow-teal-500/30"
+            className="bg-gradient-to-r from-[#00B0BC] via-[#188CA0] to-[#2D697E] hover:brightness-110 text-white px-10 py-6 text-lg shadow-[0_14px_28px_rgba(24,140,160,0.28)]"
           >
             Explore Dashboard
           </Button>
@@ -246,7 +246,7 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
           whileInView={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
-          className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-gray-100"
+          className="clay overflow-hidden border border-[#00B0BC]/20"
         >
           <SupplyChainThree />
         </motion.div>
@@ -272,16 +272,17 @@ export function LandingPage({ onNavigate }: { onNavigate: (page: string) => void
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           viewport={{ once: true }}
-          className="bg-gradient-to-r from-teal-500 to-cyan-500 rounded-3xl p-12 text-center shadow-2xl"
+          className="relative overflow-hidden rounded-3xl p-12 text-center border border-[#2D697E]/25 bg-gradient-to-r from-[#188CA0] via-[#2D697E] to-[#2F4858] shadow-[0_22px_36px_rgba(47,72,88,0.28)]"
         >
-          <h2 className="text-4xl text-white mb-4">Ready to Transform Medicine Management?</h2>
-          <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_22%_20%,rgba(46,252,220,0.22),transparent_50%),radial-gradient(circle_at_82%_72%,rgba(0,214,208,0.16),transparent_55%)]" />
+          <h2 className="relative text-4xl text-[#F2FCFD] mb-4">Ready to Transform Medicine Management?</h2>
+          <p className="relative text-xl text-[#D6F6F8] mb-8 max-w-2xl mx-auto">
             Join Medisync today and be part of the circular pharmaceutical economy
           </p>
           <Button
             size="lg"
             onClick={() => onNavigate('login')}
-            className="bg-white text-teal-600 hover:bg-gray-50 px-10 py-6 text-lg shadow-xl"
+            className="relative bg-[#2EFCDC] text-[#2F4858] hover:bg-[#00D6D0] px-10 py-6 text-lg font-semibold shadow-[0_16px_30px_rgba(0,176,188,0.35)]"
           >
             Get Started Now
           </Button>

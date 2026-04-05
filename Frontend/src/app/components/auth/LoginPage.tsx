@@ -97,7 +97,7 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-cyan-50/30 to-teal-50/40 relative overflow-hidden">
+    <div className="min-h-screen clay-bg relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -131,14 +131,13 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <Button
-            variant="outline"
+          <button
             onClick={() => onNavigate('landing')}
-            className="mb-8 gap-2"
+            className="clay-btn mb-8 inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-600 bg-white hover:text-teal-700"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
-          </Button>
+          </button>
         </motion.div>
 
         {/* Header */}
@@ -148,7 +147,7 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-5xl mb-4 bg-gradient-to-r from-gray-900 via-teal-800 to-cyan-700 bg-clip-text text-transparent">
+          <h1 className="text-5xl font-extrabold mb-4 bg-gradient-to-r from-gray-900 via-teal-800 to-cyan-700 bg-clip-text text-transparent">
             Welcome to Medisync
           </h1>
           <p className="text-xl text-gray-600">Select your role to continue</p>
@@ -168,11 +167,11 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
                   onClick={() => setSelectedRole(role.id)}
                   className="cursor-pointer"
                 >
-                  <Card className={`p-6 bg-gradient-to-br ${role.bgColor} border-2 border-transparent hover:border-gray-300 transition-all duration-300 group`}>
+                  <Card className={`p-6 clay hover:translate-y-[-3px] transition-all duration-300 group border-2 border-transparent hover:border-teal-200`}>
                     <div className={`w-16 h-16 bg-gradient-to-br ${role.color} rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
                       <role.icon className="w-8 h-8 text-white" />
                     </div>
-                    <h3 className="text-2xl mb-2">{role.name}</h3>
+                    <h3 className="text-2xl font-bold mb-2">{role.name}</h3>
                     <p className="text-gray-600">{role.description}</p>
                   </Card>
                 </motion.div>
@@ -187,7 +186,7 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
             transition={{ duration: 0.5 }}
             className="max-w-md mx-auto"
           >
-            <Card className="p-8 bg-white/80 backdrop-blur-xl shadow-2xl">
+            <Card className="p-8 clay">
               {/* Selected Role Display */}
               <div className="text-center mb-6">
                 <div className={`w-20 h-20 bg-gradient-to-br ${roles.find(r => r.id === selectedRole)?.color} rounded-2xl flex items-center justify-center mx-auto mb-4`}>

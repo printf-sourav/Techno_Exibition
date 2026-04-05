@@ -13,7 +13,10 @@ import { PendingApprovalPage } from './components/auth/PendingApprovalPage';
 
 type Page = 'landing' | 'dashboard' | 'hospital' | 'waste' | 'ngo' | 'admin' | 'login' | 'signup' | 'pending';
 
+const ALL_PAGES: Page[] = ['landing', 'dashboard', 'hospital', 'waste', 'ngo', 'admin', 'login', 'signup', 'pending'];
 const PROTECTED_PAGES: Page[] = ['dashboard', 'hospital', 'waste', 'ngo', 'admin', 'pending'];
+
+const isPage = (page: string): page is Page => ALL_PAGES.includes(page as Page);
 
 const getRoleHomePage = (role: UserRole): Page => {
   if (role === 'retailer') {
@@ -63,7 +66,22 @@ function AppContent() {
   }, [currentPage, isAuthenticated, user]);
 
   const handleNavigate = (page: string) => {
-    setCurrentPage(page as Page);
+    const targetPage = isPage(page) ? page : user ? getRoleHomePage(user.role) : 'landing';
+
+    if (!isAuthenticated || !user) {
+      setCurrentPage(PROTECTED_PAGES.includes(targetPage) ? 'login' : targetPage);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const roleHomePage = getRoleHomePage(user.role);
+    const allowedPages = new Set<Page>([roleHomePage]);
+
+    if (user.role === 'admin') {
+      allowedPages.add('pending');
+    }
+
+    setCurrentPage(allowedPages.has(targetPage) ? targetPage : roleHomePage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

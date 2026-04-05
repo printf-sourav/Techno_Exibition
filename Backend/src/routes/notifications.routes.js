@@ -9,4 +9,5 @@ const router = express.Router();
 router.post("/", authMiddleware, createNotification);
 router.get("/", authMiddleware, getNotifications);
 router.put("/:id", authMiddleware, markRead);
+router.patch("/:id", authMiddleware, markRead);
 export default router;

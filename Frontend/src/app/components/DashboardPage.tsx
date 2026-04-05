@@ -11,6 +11,7 @@ import {
   Clock,
   CheckCircle,
   ArrowRight,
+  BarChart3,
   Activity,
   DollarSign,
   Truck,
@@ -39,12 +40,14 @@ import {
   getNgoNeedsApi,
   getRetailerMlInsightsApi,
   getRetailerRedistributionRequestsApi,
+  getWastePickupsApi,
   respondRetailerRedistributionRequestApi,
   type InventoryItem,
   type MarketRequest,
   type MlInsightsResponse,
   type NgoNeed,
   type RedistributionRequest,
+  type WastePickup,
 } from '../lib/api';
 
 type InventoryView = {
@@ -170,6 +173,8 @@ function MapViewportController({ center, zoom }: { center: DemandCoordinate; zoo
   return null;
 }
 
+type DashboardTab = 'overview' | 'inventory' | 'marketplace' | 'redistribution' | 'analytics' | 'waste';
+
 export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [selectedMedicine, setSelectedMedicine] = useState<string | null>(null);
   const [inventoryData, setInventoryData] = useState<InventoryView[]>([]);
@@ -182,10 +187,12 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
   const [mlInsights, setMlInsights] = useState<MlInsightsResponse | null>(null);
   const [incomingRedistributions, setIncomingRedistributions] = useState<RedistributionRequest[]>([]);
   const [outgoingRedistributions, setOutgoingRedistributions] = useState<RedistributionRequest[]>([]);
+  const [wasteRequests, setWasteRequests] = useState<WastePickup[]>([]);
   const [redistributionActionId, setRedistributionActionId] = useState<string | null>(null);
   const [inventorySearchTerm, setInventorySearchTerm] = useState('');
   const [inventoryStatusFilter, setInventoryStatusFilter] = useState<'all' | InventoryView['status']>('all');
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   
   // Modal states
   const [sellModalOpen, setSellModalOpen] = useState(false);
@@ -253,11 +260,12 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
 
     const loadCoreData = async () => {
       try {
-        const [inventoryItems, requests, needs, redistributionQueue] = await Promise.all([
+        const [inventoryItems, requests, needs, redistributionQueue, wastePickups] = await Promise.all([
           getInventoryApi(token),
           getMarketplaceRequestsApi(token),
           getNgoNeedsApi(token, { status: 'open' }),
           getRetailerRedistributionRequestsApi(token),
+          getWastePickupsApi(token),
         ]);
 
         const mappedInventory = inventoryItems.map((item: InventoryItem) => ({
@@ -292,6 +300,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
         setNgoNeeds(needs);
         setIncomingRedistributions(redistributionQueue.incoming || []);
         setOutgoingRedistributions(redistributionQueue.outgoing || []);
+        setWasteRequests(wastePickups || []);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to load dashboard data';
         toast.error(message);
@@ -587,6 +596,43 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
 
   const pendingIncomingRedistributions = incomingRedistributions.filter((item) => item.status === 'pending');
   const pendingOutgoingRedistributions = outgoingRedistributions.filter((item) => item.status === 'pending');
+  const assignedWasteRequests = wasteRequests.filter((item) => item.status === 'assigned');
+  const completedWasteRequests = wasteRequests.filter((item) => item.status === 'completed');
+
+  const getWasteStatusMeta = (status: WastePickup['status']) => {
+    if (status === 'assigned') {
+      return {
+        label: 'Accepted by Admin',
+        className: 'bg-blue-100 text-blue-700',
+      };
+    }
+
+    if (status === 'in_progress') {
+      return {
+        label: 'Pickup In Progress',
+        className: 'bg-amber-100 text-amber-700',
+      };
+    }
+
+    if (status === 'completed') {
+      return {
+        label: 'Disposed',
+        className: 'bg-green-100 text-green-700',
+      };
+    }
+
+    if (status === 'cancelled') {
+      return {
+        label: 'Cancelled',
+        className: 'bg-red-100 text-red-700',
+      };
+    }
+
+    return {
+      label: 'Pending Admin Review',
+      className: 'bg-gray-100 text-gray-700',
+    };
+  };
 
   const getRetailerDisplayName = (retailer?: { name?: string; organizationName?: string }) =>
     retailer?.organizationName || retailer?.name || 'Retailer';
@@ -608,31 +654,68 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-cyan-50/30 to-teal-50/40">
+    <div className="min-h-screen clay-bg flex flex-col">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-gray-200 sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
+      <div className="bg-white/90 backdrop-blur-xl border-b border-gray-200/60 sticky top-0 z-50" style={{ boxShadow: '0 4px 16px rgba(163,177,198,0.15)' }}>
+        <div className="px-6 py-3">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                Medisync Dashboard
-              </h1>
-              <p className="text-sm text-gray-500">Retailer Portal</p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 clay-teal rounded-lg flex items-center justify-center">
+                <Package className="w-4 h-4 text-teal-700" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                  MediSync
+                </h1>
+              </div>
             </div>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => onNavigate('landing')}>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 mr-2">Retailer Portal</span>
+              <button onClick={() => onNavigate('landing')} className="clay-btn px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white hover:text-teal-700">
                 Home
-              </Button>
-              <Button variant="outline" onClick={logout}>
-                <LogOut className="w-4 h-4 mr-1" />
+              </button>
+              <button onClick={logout} className="clay-btn px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white hover:text-teal-700 inline-flex items-center gap-1">
+                <LogOut className="w-3.5 h-3.5" />
                 Logout
-              </Button>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8">
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar */}
+        <aside className="w-56 clay-sidebar shrink-0 overflow-y-auto">
+          <nav className="p-3 space-y-0.5 mt-2">
+            {([
+              { id: 'overview', label: 'Overview', icon: BarChart3 },
+              { id: 'inventory', label: 'Inventory', icon: Package },
+              { id: 'marketplace', label: 'Marketplace', icon: MapPin },
+              { id: 'redistribution', label: 'Redistribution', icon: Truck },
+              { id: 'analytics', label: 'AI Insights', icon: Activity },
+              { id: 'waste', label: 'Waste', icon: Trash2 },
+            ] as { id: DashboardTab; label: string; icon: React.ElementType }[]).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 clay-nav-item text-sm text-left ${
+                  activeTab === tab.id
+                    ? 'active text-teal-700 font-bold'
+                    : 'text-gray-600 font-medium'
+                }`}
+              >
+                <tab.icon className={`w-[18px] h-[18px] ${activeTab === tab.id ? 'text-teal-600' : 'text-gray-400'}`} />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+
+        {activeTab === 'overview' && (
+        <>
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <motion.div
@@ -640,7 +723,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-orange-500 hover:shadow-lg transition-shadow">
+            <Card className="p-6 clay-stat bg-white border-l-4 border-l-orange-400">
               <div className="flex items-center justify-between mb-2">
                 <AlertTriangle className="w-8 h-8 text-orange-500" />
                 <Badge variant="destructive">Critical</Badge>
@@ -655,7 +738,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-teal-500 hover:shadow-lg transition-shadow">
+            <Card className="p-6 clay-stat bg-white border-l-4 border-l-teal-400">
               <div className="flex items-center justify-between mb-2">
                 <Package className="w-8 h-8 text-teal-500" />
                 <Badge className="bg-teal-100 text-teal-700">Active</Badge>
@@ -670,7 +753,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-blue-500 hover:shadow-lg transition-shadow">
+            <Card className="p-6 clay-stat bg-white border-l-4 border-l-blue-400">
               <div className="flex items-center justify-between mb-2">
                 <MapPin className="w-8 h-8 text-blue-500" />
                 <Badge className="bg-blue-100 text-blue-700">Nearby</Badge>
@@ -685,7 +768,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-green-500 hover:shadow-lg transition-shadow">
+            <Card className="p-6 clay-stat bg-white border-l-4 border-l-green-400">
               <div className="flex items-center justify-between mb-2">
                 <TrendingUp className="w-8 h-8 text-green-500" />
                 <Badge className="bg-green-100 text-green-700">AI</Badge>
@@ -696,6 +779,62 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
           </motion.div>
         </div>
 
+        {/* Charts */}
+        <div className="grid lg:grid-cols-2 gap-6 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+          >
+            <Card className="p-6 clay">
+              <h2 className="text-xl mb-6">Top Inventory Quantities</h2>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={turnoverData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="url(#colorTurnover)" radius={[8, 8, 0, 0]} />
+                  <defs>
+                    <linearGradient id="colorTurnover" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#14b8a6" />
+                      <stop offset="100%" stopColor="#06b6d4" />
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </Card>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            <Card className="p-6 clay">
+              <h2 className="text-xl mb-6">AI Expiry Risk Distribution</h2>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={expiryRiskData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Line 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#f97316" 
+                    strokeWidth={3}
+                    dot={{ fill: '#f97316', r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+          </motion.div>
+        </div>
+        </>
+        )}
+
+        {activeTab === 'inventory' && (
         <div className="grid lg:grid-cols-3 gap-6 mb-8">
           {/* Inventory Panel */}
           <motion.div
@@ -704,7 +843,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             transition={{ duration: 0.5 }}
             className="lg:col-span-2"
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl">
+            <Card className="p-6 clay">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-xl mb-1">Inventory Panel</h2>
@@ -871,7 +1010,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <Card className="p-6 bg-gradient-to-br from-orange-50 to-red-50 border-orange-200">
+            <Card className="p-6 clay clay-orange !bg-gradient-to-br !from-orange-50/80 !to-red-50/60 !border-orange-200/50">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
                   <Activity className="w-6 h-6 text-white" />
@@ -992,14 +1131,16 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             </Card>
           </motion.div>
         </div>
+        )}
 
+        {activeTab === 'redistribution' && (
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl border border-amber-100">
+            <Card className="p-6 clay border border-amber-100/50">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl">Incoming Low-Stock Redistribution</h2>
                 <Badge className="bg-amber-100 text-amber-700">{pendingIncomingRedistributions.length} pending</Badge>
@@ -1059,7 +1200,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl border border-green-100">
+            <Card className="p-6 clay border border-green-100/50">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl">Outgoing Redistribution Queue</h2>
                 <Badge className="bg-green-100 text-green-700">{pendingOutgoingRedistributions.length} pending</Badge>
@@ -1107,7 +1248,10 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             </Card>
           </motion.div>
         </div>
+        )}
 
+        {activeTab === 'marketplace' && (
+        <>
         {/* Demand Map and Marketplace */}
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           <motion.div
@@ -1115,7 +1259,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl">
+            <Card className="p-6 clay">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-xl mb-1">Nearby Demand Map</h2>
@@ -1270,7 +1414,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl">
+            <Card className="p-6 clay">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-xl mb-1">Donation Channel</h2>
@@ -1328,7 +1472,11 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             </Card>
           </motion.div>
         </div>
+        </>
+        )}
 
+        {activeTab === 'analytics' && (
+        <>
         {/* Charts */}
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           <motion.div
@@ -1336,7 +1484,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.4 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl">
+            <Card className="p-6 clay">
               <h2 className="text-xl mb-6">Top Inventory Quantities</h2>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={turnoverData}>
@@ -1361,7 +1509,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
-            <Card className="p-6 bg-white/80 backdrop-blur-xl">
+            <Card className="p-6 clay">
               <h2 className="text-xl mb-6">AI Expiry Risk Distribution</h2>
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={expiryRiskData}>
@@ -1381,27 +1529,101 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             </Card>
           </motion.div>
         </div>
+        </>
+        )}
 
+        {activeTab === 'waste' && (
+        <>
         {/* Waste Disposal */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.6 }}
         >
-          <Card className="p-6 bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-gray-600 to-slate-700 rounded-2xl flex items-center justify-center">
-                  <Trash2 className="w-8 h-8 text-white" />
+          <div className="space-y-6">
+            <Card className="p-6 bg-white/80 backdrop-blur-xl border border-gray-200">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-gradient-to-br from-gray-600 to-slate-700 rounded-2xl flex items-center justify-center">
+                    <Trash2 className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl mb-1">Waste Request Tracking</h2>
+                    <p className="text-sm text-gray-600">Retailer requests and admin assignment status</p>
+                  </div>
                 </div>
                 <div>
-                  <h2 className="text-xl mb-1">Waste Disposal Request</h2>
-                  <p className="text-sm text-gray-600">Use per-item Waste action above to schedule certified pickup</p>
+                  <Badge className="bg-gray-100 text-gray-700">{wasteRequests.length} total requests</Badge>
                 </div>
               </div>
-            </div>
-          </Card>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="p-4 rounded-xl border border-gray-200 bg-gray-50">
+                  <p className="text-xs text-gray-500 mb-1">Pending Admin Review</p>
+                  <p className="text-2xl font-semibold text-gray-800">
+                    {wasteRequests.filter((item) => item.status === 'pending').length}
+                  </p>
+                </div>
+                <div className="p-4 rounded-xl border border-blue-200 bg-blue-50">
+                  <p className="text-xs text-blue-600 mb-1">Accepted by Admin</p>
+                  <p className="text-2xl font-semibold text-blue-700">{assignedWasteRequests.length}</p>
+                </div>
+                <div className="p-4 rounded-xl border border-green-200 bg-green-50">
+                  <p className="text-xs text-green-600 mb-1">Disposed</p>
+                  <p className="text-2xl font-semibold text-green-700">{completedWasteRequests.length}</p>
+                </div>
+              </div>
+
+              {wasteRequests.length === 0 && (
+                <div className="p-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                  No waste requests yet. Use the Waste action in Inventory to create one.
+                </div>
+              )}
+
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                {wasteRequests.map((request) => {
+                  const statusMeta = getWasteStatusMeta(request.status);
+                  const agencyName =
+                    request.agencyId?.organizationName || request.agencyId?.name || 'Awaiting agency assignment';
+
+                  return (
+                    <div key={request._id} className="p-4 rounded-xl border border-gray-200 bg-white">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <p className="text-sm font-semibold text-gray-900">{request.wasteType}</p>
+                        <Badge className={statusMeta.className}>{statusMeta.label}</Badge>
+                      </div>
+
+                      <p className="text-xs text-gray-600 mb-1">
+                        Amount: {request.amount} {request.unit}
+                      </p>
+                      <p className="text-xs text-gray-600 mb-1">Location: {request.location}</p>
+                      <p className="text-xs text-gray-600 mb-1">
+                        Scheduled: {new Date(request.pickupDate).toLocaleDateString()}
+                        {request.pickupTime ? ` • ${request.pickupTime}` : ''}
+                      </p>
+
+                      {request.status !== 'pending' && (
+                        <p className="text-xs text-blue-700 mt-2">
+                          {request.status === 'assigned' ? 'Admin assigned agency:' : 'Handling agency:'} {agencyName}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+
+            <Card className="p-5 bg-gradient-to-br from-gray-50 to-slate-50 border-gray-200">
+              <p className="text-sm text-gray-600">
+                Tip: Create new waste requests from the Inventory tab by clicking the Waste action on each medicine.
+              </p>
+            </Card>
+          </div>
         </motion.div>
+        </>
+        )}
+
+        </main>
       </div>
 
       {/* Modals */}

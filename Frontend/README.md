@@ -1,7 +1,7 @@
 
-  # last (Copy)
+  # medisyn
 
-  This is a code bundle for last (Copy). The original project is available at https://www.figma.com/design/3RFDAdaYM6kUGqfrEcfwnZ/last--Copy-.
+  This is the frontend codebase for medisyn.
 
   ## Running the code
 

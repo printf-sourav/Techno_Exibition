@@ -9,6 +9,7 @@
     "dev": "nodemon server.js",
     "seed:admin": "node src/scripts/seedAdminCredentials.js",
     "seed:demo": "node src/scripts/seedDemoData.js",
+    "seed:test1": "node src/scripts/seedTest1Data.js",
     "train:ml": "node src/scripts/trainMlFromHistory.js"
   },
   "keywords": [],

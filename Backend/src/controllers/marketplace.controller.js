@@ -5,6 +5,7 @@ import InventoryItem from "../models/InventoryItem.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
+import { notifyUser } from "../utils/notifications.js";
 
 const validateObjectId = (id, fieldName) => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -156,6 +157,17 @@ export const getIncomingOffers = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, incomingOffers, "Incoming offers fetched successfully"));
 });
 
+export const getRetailerOffers = asyncHandler(async (req, res) => {
+  const offers = await MedicineOffer.find({ retailerId: req.user.id })
+    .populate("hospitalId", "name organizationName address phone")
+    .populate("inventoryItemId", "_id quantity expiryDate status")
+    .sort({ createdAt: -1 });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, offers, "Retailer offers fetched successfully"));
+});
+
 export const acceptOffer = asyncHandler(async (req, res) => {
   const { id } = req.params;
   validateObjectId(id, "offer id");
@@ -187,6 +199,22 @@ export const acceptOffer = asyncHandler(async (req, res) => {
   offer.status = "accepted";
   offer.hospitalId = req.user.id;
   await offer.save();
+
+  const hospitalName = req.user.organizationName || req.user.name || "A hospital";
+  const hospitalAddress = req.user.address ? ` Address: ${req.user.address}.` : "";
+  const hospitalPhone = req.user.phone ? ` Contact: ${req.user.phone}.` : "";
+  const totalPrice = Number(offer.totalPrice || 0);
+  const medicineName = offer.medicineName || "medicine";
+  const batchLabel = offer.batchNumber ? ` (Batch ${offer.batchNumber})` : "";
+
+  await notifyUser({
+    userId: offer.retailerId,
+    type: "offer_accepted",
+    title: "Hospital Accepted Your Offer",
+    message: `${hospitalName} accepted your offer for ${offer.quantity} units of ${medicineName}${batchLabel} worth ₹${totalPrice.toFixed(2)}.${hospitalAddress}${hospitalPhone}`,
+    entityType: "offer",
+    entityId: offer._id,
+  });
 
   return res
     .status(200)

@@ -1,6 +1,6 @@
 export type UserRole = "retailer" | "hospital" | "ngo" | "waste" | "admin";
 
-type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type RequestOptions = {
   method?: HttpMethod;
@@ -63,6 +63,7 @@ export type MarketRequest = {
 export type Offer = {
   _id: string;
   medicineName: string;
+  batchNumber?: string;
   quantity: number;
   pricePerPacket: number;
   totalPrice: number;
@@ -71,14 +72,35 @@ export type Offer = {
     _id?: string;
     name?: string;
     organizationName?: string;
-  };
+  } | string;
+  hospitalId?: {
+    _id?: string;
+    name?: string;
+    organizationName?: string;
+    address?: string;
+    phone?: string;
+  } | string;
   inventoryItemId?: {
     _id?: string;
     expiryDate?: string;
     quantity?: number;
     status?: string;
-  };
+  } | string;
   createdAt: string;
+  updatedAt?: string;
+};
+
+export type AppNotification = {
+  _id: string;
+  userId: string;
+  type?: string;
+  title?: string;
+  message?: string;
+  entityType?: string;
+  entityId?: string;
+  isRead: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type NgoNeed = {
@@ -350,7 +372,33 @@ export const registerApi = (payload: Record<string, unknown>) => {
   });
 };
 
+export const getNotificationsApi = (token: string) =>
+  apiRequest<AppNotification[]>("/notifications", { token });
+
+export const markNotificationReadApi = (token: string, notificationId: string) =>
+  apiRequest<AppNotification>(`/notifications/${notificationId}`, {
+    method: "PATCH",
+    token,
+  });
+
 export const getInventoryApi = (token: string) => apiRequest<InventoryItem[]>("/api/inventory", { token });
+
+export const createInventoryApi = (
+  token: string,
+  payload: {
+    name: string;
+    batchNumber: string;
+    quantity: number;
+    expiryDate: string;
+    mrp: number;
+    gstPercent?: number;
+  }
+) =>
+  apiRequest<InventoryItem>("/api/inventory", {
+    method: "POST",
+    token,
+    body: payload,
+  });
 
 export const getMarketplaceRequestsApi = (token: string) =>
   apiRequest<MarketRequest[]>("/api/marketplace/requests", { token });
@@ -439,6 +487,9 @@ export const getHospitalMedicinesApi = (token: string) =>
 
 export const getHospitalIncomingOffersApi = (token: string) =>
   apiRequest<Offer[]>("/api/marketplace/offers/incoming", { token });
+
+export const getRetailerOffersApi = (token: string) =>
+  apiRequest<Offer[]>("/api/marketplace/offers/mine", { token });
 
 export const acceptHospitalOfferApi = (token: string, offerId: string) =>
   apiRequest<{ offer: Offer }>(`/api/marketplace/offers/${offerId}/accept`, {

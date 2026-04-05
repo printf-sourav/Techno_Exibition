@@ -1,0 +1,25 @@
+MEDISYNC TEST1 LOGINS
+Generated for full feature testing.
+Generated at: 2026-04-05T16:17:21.358Z
+
+Default password (retailer/hospital/ngo/waste): Demo@123
+Default password (admin): Admin@123
+
+ROLE | ORGANIZATION | EMAIL | PASSWORD | VERIFICATION
+------------------------------------------------------
+admin | Medisync Test1 Platform | admin.test1@medisync.demo | Admin@123 | verified
+retailer | CityCare Pharmacy - Test1 | retailer1.test1@medisync.demo | Demo@123 | verified
+retailer | Apollo Community Pharma - Test1 | retailer2.test1@medisync.demo | Demo@123 | verified
+retailer | WellNest Medical Store - Test1 | retailer3.test1@medisync.demo | Demo@123 | verified
+retailer | GreenCross Pharmacy - Test1 | retailer4.test1@medisync.demo | Demo@123 | verified
+retailer | Nova Health Drugs - Test1 | retailer5.test1@medisync.demo | Demo@123 | verified
+retailer | LifeSpring Medico - Test1 | retailer6.test1@medisync.demo | Demo@123 | verified
+retailer | Pending Pharmacy - Test1 | retailer.pending.test1@medisync.demo | Demo@123 | pending
+hospital | City General Hospital - Test1 | hospital1.test1@medisync.demo | Demo@123 | verified
+hospital | St. Mary Medical Center - Test1 | hospital2.test1@medisync.demo | Demo@123 | verified
+hospital | Regional Health Clinic - Test1 | hospital3.test1@medisync.demo | Demo@123 | verified
+ngo | Health for All Foundation - Test1 | ngo1.test1@medisync.demo | Demo@123 | verified
+ngo | Medical Aid Network - Test1 | ngo2.test1@medisync.demo | Demo@123 | verified
+ngo | Community Care Initiative - Test1 | ngo3.test1@medisync.demo | Demo@123 | verified
+waste | EcoWaste Medical Disposal - Test1 | waste1.test1@medisync.demo | Demo@123 | verified
+waste | BioClean Waste Management - Test1 | waste2.test1@medisync.demo | Demo@123 | verified

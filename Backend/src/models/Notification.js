@@ -12,6 +12,7 @@ const notificationSchema = new mongoose.Schema(
     type: String,
     enum: [
       "offer_created",
+      "offer_accepted",
       "request_matched",
       "donation_update",
       "pickup_assigned",

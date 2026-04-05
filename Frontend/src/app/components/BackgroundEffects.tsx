@@ -29,7 +29,7 @@ export function BackgroundEffects() {
           ease: "easeInOut",
         }}
       />
-      
+
       <motion.div
         className="absolute bottom-20 left-1/3 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"
         animate={{
