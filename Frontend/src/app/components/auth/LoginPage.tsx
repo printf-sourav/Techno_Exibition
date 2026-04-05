@@ -77,26 +77,6 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
     setLoading(true);
     setError('');
 
-    // Check if account is pending or rejected before attempting login
-    const mockUsers = JSON.parse(localStorage.getItem('medisync_users') || '[]');
-    const foundUser = mockUsers.find(
-      (u: any) => u.email === email && u.password === password && u.role === selectedRole
-    );
-
-    if (foundUser) {
-      if (foundUser.verificationStatus === 'pending') {
-        setLoading(false);
-        setError('Your account is still awaiting admin approval. Please wait for verification.');
-        return;
-      }
-
-      if (foundUser.verificationStatus === 'rejected') {
-        setLoading(false);
-        setError('Your account has been rejected. Please contact support@medisync.com for assistance.');
-        return;
-      }
-    }
-
     const success = await login(email, password, selectedRole);
     
     setLoading(false);
@@ -112,7 +92,7 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
       };
       onNavigate(dashboardMap[selectedRole]);
     } else {
-      setError('Invalid credentials. Try demo@retailer.com / demo or admin@medisync.com / admin123');
+      setError('Login failed. Check credentials, role, and account verification status.');
     }
   };
 
@@ -295,11 +275,10 @@ export function LoginPage({ onNavigate, onSignup }: LoginPageProps) {
                 )}
               </form>
 
-              {/* Demo Credentials */}
+              {/* Login Info */}
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-600 mb-2 font-medium">Demo Credentials:</p>
-                <p className="text-xs text-gray-600">Retailer: demo@retailer.com / demo</p>
-                <p className="text-xs text-gray-600">Admin: admin@medisync.com / admin123</p>
+                <p className="text-xs text-gray-600 mb-2 font-medium">Authentication:</p>
+                <p className="text-xs text-gray-600">Use registered backend credentials for your selected role.</p>
               </div>
             </Card>
           </motion.div>

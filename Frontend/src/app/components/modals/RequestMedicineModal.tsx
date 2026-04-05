@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Package, AlertCircle, Send } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -10,17 +10,39 @@ interface RequestMedicineModalProps {
   isOpen: boolean;
   onClose: () => void;
   medicineName?: string;
+  onSubmitRequest?: (payload: {
+    medicineName: string;
+    quantity: number;
+    priority: 'low' | 'medium' | 'high';
+  }) => Promise<void>;
 }
 
-export function RequestMedicineModal({ isOpen, onClose, medicineName }: RequestMedicineModalProps) {
+export function RequestMedicineModal({
+  isOpen,
+  onClose,
+  medicineName,
+  onSubmitRequest,
+}: RequestMedicineModalProps) {
   const [formData, setFormData] = useState({
     medicineName: medicineName || '',
     quantity: '',
     priority: 'Medium',
     notes: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      medicineName: medicineName || prev.medicineName,
+    }));
+  }, [isOpen, medicineName]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.medicineName || !formData.quantity) {
@@ -28,13 +50,29 @@ export function RequestMedicineModal({ isOpen, onClose, medicineName }: RequestM
       return;
     }
 
-    // Simulate sending request to retailers
-    toast.success('Medicine request sent successfully. Nearby retailers have been notified.', {
-      duration: 4000,
-    });
+    try {
+      setSubmitting(true);
 
-    onClose();
-    setFormData({ medicineName: '', quantity: '', priority: 'Medium', notes: '' });
+      if (onSubmitRequest) {
+        await onSubmitRequest({
+          medicineName: formData.medicineName.trim(),
+          quantity: Number(formData.quantity),
+          priority: formData.priority.toLowerCase() as 'low' | 'medium' | 'high',
+        });
+      }
+
+      toast.success('Medicine request sent successfully. Nearby retailers have been notified.', {
+        duration: 4000,
+      });
+
+      onClose();
+      setFormData({ medicineName: '', quantity: '', priority: 'Medium', notes: '' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to send request';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -158,10 +196,11 @@ export function RequestMedicineModal({ isOpen, onClose, medicineName }: RequestM
                   </Button>
                   <Button
                     type="submit"
+                    disabled={submitting}
                     className="flex-1 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 gap-2"
                   >
                     <Send className="w-4 h-4" />
-                    Send Request
+                    {submitting ? 'Sending...' : 'Send Request'}
                   </Button>
                 </div>
               </form>

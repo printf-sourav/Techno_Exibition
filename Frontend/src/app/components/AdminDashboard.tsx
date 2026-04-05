@@ -13,86 +13,131 @@ import {
   SelectValue,
 } from './ui/select';
 import { toast } from 'sonner';
+import {
+  approveUserApi,
+  assignWastePickupApi,
+  getAdminUsersApi,
+  getPendingUsersApi,
+  getWastePickupsApi,
+  rejectUserApi,
+  type BackendUser,
+  type UserRole,
+  type WastePickup,
+} from '../lib/api';
 
 export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const { user, logout } = useAuth();
-  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [wastePickupRequests, setWastePickupRequests] = useState<any[]>([]);
+  const { user, logout, token } = useAuth();
+  const [pendingUsers, setPendingUsers] = useState<BackendUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<BackendUser | null>(null);
+  const [wastePickupRequests, setWastePickupRequests] = useState<WastePickup[]>([]);
+  const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
+  const [loading, setLoading] = useState(false);
   const [selectedAgencies, setSelectedAgencies] = useState<Record<string, string>>({});
 
-  // Dummy nearby waste pickup agencies
-  const nearbyAgencies = [
-    { id: 'agency-1', name: 'EcoWaste Medical Disposal', location: 'Bengaluru' },
-    { id: 'agency-2', name: 'BioClean Waste Management', location: 'Whitefield' },
-    { id: 'agency-3', name: 'GreenCycle Biomedical Services', location: 'Indiranagar' },
-  ];
+  const getUserId = (item: BackendUser) => item._id || item.id || '';
+
+  const nearbyAgencies = allUsers.filter(
+    (item) => item.role === 'waste' && item.verificationStatus === 'verified'
+  );
+
+  const loadAdminData = async () => {
+    if (!token) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const [pending, users, pickups] = await Promise.all([
+        getPendingUsersApi(token),
+        getAdminUsersApi(token),
+        getWastePickupsApi(token),
+      ]);
+
+      setPendingUsers(pending.filter((u) => u.role !== 'admin'));
+      setAllUsers(users);
+      setWastePickupRequests(pickups);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load admin dashboard data';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Load pending users from localStorage
-    const allUsers = JSON.parse(localStorage.getItem('medisync_users') || '[]');
-    // Filter out admin accounts from verification queue - admins don't require approval
-    const pending = allUsers.filter((u: any) => u.verificationStatus === 'pending' && u.role !== 'admin');
-    setPendingUsers(pending);
+    loadAdminData();
+  }, [token]);
 
-    // Load waste pickup requests
-    const pickupRequests = JSON.parse(localStorage.getItem('medisync_waste_pickups') || '[]');
-    setWastePickupRequests(pickupRequests);
-  }, []);
+  const handleApprove = async (userId: string) => {
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
 
-  const handleApprove = (userId: string) => {
-    const allUsers = JSON.parse(localStorage.getItem('medisync_users') || '[]');
-    const updatedUsers = allUsers.map((u: any) =>
-      u.id === userId ? { ...u, verificationStatus: 'verified' } : u
-    );
-    localStorage.setItem('medisync_users', JSON.stringify(updatedUsers));
-    // Filter out admin accounts from verification queue
-    setPendingUsers(updatedUsers.filter((u: any) => u.verificationStatus === 'pending' && u.role !== 'admin'));
-    setSelectedUser(null);
-    toast.success('User approved successfully!');
+    try {
+      await approveUserApi(token, userId);
+      setSelectedUser(null);
+      toast.success('User approved successfully!');
+      await loadAdminData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to approve user';
+      toast.error(message);
+    }
   };
 
-  const handleReject = (userId: string) => {
-    const allUsers = JSON.parse(localStorage.getItem('medisync_users') || '[]');
-    const updatedUsers = allUsers.map((u: any) =>
-      u.id === userId ? { ...u, verificationStatus: 'rejected' } : u
-    );
-    localStorage.setItem('medisync_users', JSON.stringify(updatedUsers));
-    // Filter out admin accounts from verification queue
-    setPendingUsers(updatedUsers.filter((u: any) => u.verificationStatus === 'pending' && u.role !== 'admin'));
-    setSelectedUser(null);
-    toast.error('User rejected successfully!');
+  const handleReject = async (userId: string) => {
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
+
+    try {
+      await rejectUserApi(token, userId);
+      setSelectedUser(null);
+      toast.error('User rejected successfully!');
+      await loadAdminData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reject user';
+      toast.error(message);
+    }
   };
 
-  const handleAssignAgency = (requestId: string, agencyId: string) => {
-    const pickupRequests = JSON.parse(localStorage.getItem('medisync_waste_pickups') || '[]');
-    const updatedRequests = pickupRequests.map((r: any) =>
-      r.id === requestId ? { ...r, assignedAgency: agencyId, status: 'assigned', assignedAgencyName: nearbyAgencies.find(a => a.id === agencyId)?.name } : r
-    );
-    localStorage.setItem('medisync_waste_pickups', JSON.stringify(updatedRequests));
-    setWastePickupRequests(updatedRequests);
-    
-    const agency = nearbyAgencies.find((a) => a.id === agencyId);
-    toast.success(`Pickup request assigned to ${agency?.name}. The agency has received the pickup details.`, {
-      description: `${agency?.name} – ${agency?.location}`,
-      duration: 5000,
-    });
-    
-    // Clear the selection
-    setSelectedAgencies(prev => {
-      const newState = { ...prev };
-      delete newState[requestId];
-      return newState;
-    });
+  const handleAssignAgency = async (requestId: string, agencyId: string) => {
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
+
+    try {
+      await assignWastePickupApi(token, requestId, agencyId);
+
+      const agency = nearbyAgencies.find((a) => getUserId(a) === agencyId);
+      toast.success(`Pickup request assigned to ${agency?.organizationName || agency?.name || 'selected agency'}.`, {
+        description: agency?.serviceArea || agency?.address || 'Agency notified successfully',
+        duration: 5000,
+      });
+
+      setSelectedAgencies((prev) => {
+        const newState = { ...prev };
+        delete newState[requestId];
+        return newState;
+      });
+
+      await loadAdminData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to assign agency';
+      toast.error(message);
+    }
   };
 
   const handleSelectAgency = (requestId: string, agencyId: string) => {
-    setSelectedAgencies(prev => ({ ...prev, [requestId]: agencyId }));
+    setSelectedAgencies((prev) => ({ ...prev, [requestId]: agencyId }));
   };
 
-  const allUsers = JSON.parse(localStorage.getItem('medisync_users') || '[]');
-  const verifiedCount = allUsers.filter((u: any) => u.verificationStatus === 'verified').length;
-  const rejectedCount = allUsers.filter((u: any) => u.verificationStatus === 'rejected').length;
+  const verifiedCount = allUsers.filter((item) => item.verificationStatus === 'verified').length;
+  const rejectedCount = allUsers.filter((item) => item.verificationStatus === 'rejected').length;
+  const countByRole = (role: UserRole) => allUsers.filter((item) => item.role === role).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-orange-50/30 to-red-50/40">
@@ -183,6 +228,12 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
           {/* Verification Queue */}
           <div className="lg:col-span-2 space-y-4">
             <h2 className="text-2xl mb-4">Verification Queue</h2>
+
+            {loading && (
+              <Card className="p-4 bg-white/80 backdrop-blur-xl text-sm text-gray-600">
+                Loading admin data...
+              </Card>
+            )}
             
             {pendingUsers.length === 0 ? (
               <Card className="p-12 bg-white/80 backdrop-blur-xl text-center">
@@ -193,7 +244,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
             ) : (
               pendingUsers.map((user, index) => (
                 <motion.div
-                  key={user.id}
+                  key={getUserId(user)}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -210,13 +261,13 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                         <div className="space-y-1 text-sm text-gray-600">
                           <p><strong>Contact:</strong> {user.name}</p>
                           <p><strong>Email:</strong> {user.email}</p>
-                          <p><strong>Phone:</strong> {user.contactNumber}</p>
+                          <p><strong>Phone:</strong> {user.phone || 'N/A'}</p>
                           <p><strong>Address:</strong> {user.address}</p>
                           {user.licenseNumber && (
                             <p><strong>License:</strong> {user.licenseNumber}</p>
                           )}
-                          {user.registrationNumber && (
-                            <p><strong>Registration:</strong> {user.registrationNumber}</p>
+                          {(user.hospitalRegNumber || user.ngoRegNumber || user.cpcbLicense) && (
+                            <p><strong>Registration:</strong> {user.hospitalRegNumber || user.ngoRegNumber || user.cpcbLicense}</p>
                           )}
                         </div>
                       </div>
@@ -233,7 +284,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                         <Button
                           size="sm"
                           className="bg-green-500 hover:bg-green-600 gap-1"
-                          onClick={() => handleApprove(user.id)}
+                          onClick={() => handleApprove(getUserId(user))}
                         >
                           <CheckCircle className="w-4 h-4" />
                           Approve
@@ -241,7 +292,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => handleReject(user.id)}
+                          onClick={() => handleReject(getUserId(user))}
                           className="gap-1"
                         >
                           <XCircle className="w-4 h-4" />
@@ -270,14 +321,14 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                     <div className="flex justify-between text-sm mb-1">
                       <span>Retailers</span>
                       <span className="font-medium">
-                        {allUsers.filter((u: any) => u.role === 'retailer').length}
+                        {countByRole('retailer')}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-teal-500 h-2 rounded-full"
                         style={{
-                          width: `${(allUsers.filter((u: any) => u.role === 'retailer').length / Math.max(allUsers.length, 1)) * 100}%`,
+                          width: `${(countByRole('retailer') / Math.max(allUsers.length, 1)) * 100}%`,
                         }}
                       />
                     </div>
@@ -287,14 +338,14 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                     <div className="flex justify-between text-sm mb-1">
                       <span>Hospitals</span>
                       <span className="font-medium">
-                        {allUsers.filter((u: any) => u.role === 'hospital').length}
+                        {countByRole('hospital')}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full"
                         style={{
-                          width: `${(allUsers.filter((u: any) => u.role === 'hospital').length / Math.max(allUsers.length, 1)) * 100}%`,
+                          width: `${(countByRole('hospital') / Math.max(allUsers.length, 1)) * 100}%`,
                         }}
                       />
                     </div>
@@ -304,14 +355,14 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                     <div className="flex justify-between text-sm mb-1">
                       <span>NGOs</span>
                       <span className="font-medium">
-                        {allUsers.filter((u: any) => u.role === 'ngo').length}
+                        {countByRole('ngo')}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-purple-500 h-2 rounded-full"
                         style={{
-                          width: `${(allUsers.filter((u: any) => u.role === 'ngo').length / Math.max(allUsers.length, 1)) * 100}%`,
+                          width: `${(countByRole('ngo') / Math.max(allUsers.length, 1)) * 100}%`,
                         }}
                       />
                     </div>
@@ -321,14 +372,14 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                     <div className="flex justify-between text-sm mb-1">
                       <span>Waste Agencies</span>
                       <span className="font-medium">
-                        {allUsers.filter((u: any) => u.role === 'waste').length}
+                        {countByRole('waste')}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-gray-600 h-2 rounded-full"
                         style={{
-                          width: `${(allUsers.filter((u: any) => u.role === 'waste').length / Math.max(allUsers.length, 1)) * 100}%`,
+                          width: `${(countByRole('waste') / Math.max(allUsers.length, 1)) * 100}%`,
                         }}
                       />
                     </div>
@@ -386,7 +437,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {wastePickupRequests.map((request, index) => (
                 <motion.div
-                  key={request.id}
+                  key={request._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -394,7 +445,9 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                   <Card className="p-5 bg-white/80 backdrop-blur-xl hover:shadow-xl transition-all duration-300">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
-                        <h3 className="text-lg font-medium mb-1">{request.pharmacyName}</h3>
+                        <h3 className="text-lg font-medium mb-1">
+                          {request.requesterId?.organizationName || request.requesterId?.name || 'Requester'}
+                        </h3>
                         <Badge 
                           className={request.status === 'assigned' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}
                         >
@@ -416,7 +469,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                         <Package className="w-4 h-4 text-gray-400 mt-0.5" />
                         <div className="text-sm">
                           <p className="text-gray-500">Amount</p>
-                          <p className="font-medium">{request.amount}</p>
+                          <p className="font-medium">{request.amount} {request.unit}</p>
                         </div>
                       </div>
 
@@ -432,7 +485,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                         <Clock className="w-4 h-4 text-gray-400 mt-0.5" />
                         <div className="text-sm">
                           <p className="text-gray-500">Pickup Time</p>
-                          <p className="font-medium">{request.pickupTime}</p>
+                          <p className="font-medium">{request.pickupTime || 'Not specified'}</p>
                         </div>
                       </div>
 
@@ -450,26 +503,26 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                         <div>
                           <label className="text-xs text-gray-600 mb-2 block">Choose Nearby Waste Pickup</label>
                           <Select 
-                            value={selectedAgencies[request.id] || ''}
-                            onValueChange={(value) => handleSelectAgency(request.id, value)}
+                            value={selectedAgencies[request._id] || ''}
+                            onValueChange={(value) => handleSelectAgency(request._id, value)}
                           >
                             <SelectTrigger className="w-full">
                               <SelectValue placeholder="Select waste agency" />
                             </SelectTrigger>
                             <SelectContent>
                               {nearbyAgencies.map((agency) => (
-                                <SelectItem key={agency.id} value={agency.id}>
-                                  {agency.name} – {agency.location}
+                                <SelectItem key={getUserId(agency)} value={getUserId(agency)}>
+                                  {agency.organizationName || agency.name} – {agency.serviceArea || agency.address || 'Service area'}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         </div>
-                        {selectedAgencies[request.id] && (
+                        {selectedAgencies[request._id] && (
                           <Button
                             size="sm"
                             className="w-full bg-green-500 hover:bg-green-600 gap-2"
-                            onClick={() => handleAssignAgency(request.id, selectedAgencies[request.id])}
+                            onClick={() => handleAssignAgency(request._id, selectedAgencies[request._id])}
                           >
                             <CheckCircle className="w-4 h-4" />
                             Confirm Assignment
@@ -483,7 +536,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                           <p className="text-sm font-medium text-green-900">Assigned to Agency</p>
                         </div>
                         <p className="text-xs text-green-700 font-medium">
-                          {request.assignedAgencyName || 'Waste agency'}
+                          {request.agencyId?.organizationName || request.agencyId?.name || 'Waste agency'}
                         </p>
                         <p className="text-xs text-green-600 mt-1">
                           Pickup details have been sent to the agency
@@ -528,11 +581,11 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-medium">{selectedUser.contactNumber}</p>
+                  <p className="font-medium">{selectedUser.phone || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Registered</p>
-                  <p className="font-medium">{new Date(selectedUser.createdAt).toLocaleDateString()}</p>
+                  <p className="font-medium">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'N/A'}</p>
                 </div>
               </div>
 
@@ -548,16 +601,16 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
                 </div>
               )}
 
-              {selectedUser.registrationNumber && (
+              {(selectedUser.hospitalRegNumber || selectedUser.ngoRegNumber || selectedUser.cpcbLicense) && (
                 <div>
                   <p className="text-sm text-gray-600">Registration Number</p>
-                  <p className="font-medium">{selectedUser.registrationNumber}</p>
+                  <p className="font-medium">{selectedUser.hospitalRegNumber || selectedUser.ngoRegNumber || selectedUser.cpcbLicense}</p>
                 </div>
               )}
 
               <div className="p-4 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  📄 Documents uploaded: {selectedUser.licenseCertificate || selectedUser.registrationCertificate || selectedUser.authorizationCertificate || 'N/A'}
+                  Documents uploaded: {selectedUser.licenseCertificateUrl || 'N/A'}
                 </p>
               </div>
             </div>
@@ -565,7 +618,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
             <div className="flex gap-3">
               <Button
                 className="flex-1 bg-green-500 hover:bg-green-600"
-                onClick={() => handleApprove(selectedUser.id)}
+                onClick={() => handleApprove(getUserId(selectedUser))}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
                 Approve User
@@ -573,7 +626,7 @@ export function AdminDashboard({ onNavigate }: { onNavigate: (page: string) => v
               <Button
                 className="flex-1"
                 variant="destructive"
-                onClick={() => handleReject(selectedUser.id)}
+                onClick={() => handleReject(getUserId(selectedUser))}
               >
                 <XCircle className="w-4 h-4 mr-2" />
                 Reject User

@@ -15,14 +15,15 @@ const notificationSchema = new mongoose.Schema(
       "request_matched",
       "donation_update",
       "pickup_assigned",
-      "verification_update"
+      "verification_update",
+      "redistribution_update"
     ]
   },
   title: String,
   message: String,
   entityType: {
     type: String,
-    enum: ["offer","request","donation","pickup","user"]
+    enum: ["offer","request","donation","pickup","user","redistribution"]
   },
   entityId: mongoose.Schema.Types.ObjectId,
   isRead: {

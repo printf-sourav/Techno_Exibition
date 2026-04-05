@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Trash2, Calendar, MapPin, CheckCircle, Clock, TrendingUp, AlertCircle, Package, LogOut, Shield, FileText, Truck, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -9,74 +9,148 @@ import { ReschedulePickupModal } from './modals/ReschedulePickupModal';
 import { GeneralWastePickupModal } from './modals/GeneralWastePickupModal';
 import { FloatingCapsules } from './FloatingCapsules';
 import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
+import {
+  getWastePickupsApi,
+  rescheduleWastePickupApi,
+  type WastePickup,
+} from '../lib/api';
 
-const wasteCategories = [
-  {
-    id: 1,
-    name: 'Expired Solid Medicines',
-    quantity: '45 kg',
-    items: 23,
-    color: 'from-red-500 to-orange-500',
-  },
-  {
-    id: 2,
-    name: 'Liquid Pharmaceuticals',
-    quantity: '12 L',
-    items: 8,
-    color: 'from-blue-500 to-cyan-500',
-  },
-  {
-    id: 3,
-    name: 'Contaminated Packaging',
-    quantity: '18 kg',
-    items: 15,
-    color: 'from-purple-500 to-pink-500',
-  },
-  {
-    id: 4,
-    name: 'Damaged Inventory',
-    quantity: '8 kg',
-    items: 5,
-    color: 'from-amber-500 to-yellow-500',
-  },
-];
-
-const scheduledPickups = [
-  {
-    id: 1,
-    date: 'March 8, 2026',
-    time: '10:00 AM - 12:00 PM',
-    facility: 'BioMedical Waste Solutions Pvt. Ltd.',
-    status: 'confirmed',
-    weight: '65 kg',
-    certification: 'ISO-14001 Certified',
-  },
-  {
-    id: 2,
-    date: 'March 15, 2026',
-    time: '2:00 PM - 4:00 PM',
-    facility: 'EcoMed Waste Management',
-    status: 'pending',
-    weight: '42 kg',
-    certification: 'CPCB Authorized',
-  },
-];
-
-const complianceMetrics = [
-  { label: 'Compliance Rate', value: 98, color: 'text-green-600' },
-  { label: 'On-time Pickups', value: 95, color: 'text-blue-600' },
-  { label: 'Documentation', value: 100, color: 'text-purple-600' },
+const categoryColors = [
+  'from-red-500 to-orange-500',
+  'from-blue-500 to-cyan-500',
+  'from-purple-500 to-pink-500',
+  'from-amber-500 to-yellow-500',
+  'from-emerald-500 to-teal-500',
+  'from-slate-500 to-gray-600',
 ];
 
 export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => void }) {
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const { logout, token, user } = useAuth();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
-  const [selectedPickup, setSelectedPickup] = useState<typeof scheduledPickups[0] | null>(null);
+  const [selectedPickup, setSelectedPickup] = useState<WastePickup | null>(null);
   const [generalPickupModalOpen, setGeneralPickupModalOpen] = useState(false);
+  const [pickups, setPickups] = useState<WastePickup[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleReschedule = (pickup: typeof scheduledPickups[0]) => {
+  const loadPickups = async () => {
+    if (!token) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await getWastePickupsApi(token);
+      setPickups(response);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load pickup requests';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPickups();
+  }, [token]);
+
+  const groupedCategories = useMemo(() => {
+    const grouped = pickups.reduce<Record<string, { amount: number; unit: 'kg' | 'packets'; items: number }>>(
+      (acc, pickup) => {
+        const key = pickup.wasteType || 'Unspecified waste';
+        if (!acc[key]) {
+          acc[key] = {
+            amount: 0,
+            unit: pickup.unit,
+            items: 0,
+          };
+        }
+
+        acc[key].amount += pickup.amount || 0;
+        acc[key].items += 1;
+        return acc;
+      },
+      {}
+    );
+
+    return Object.entries(grouped).map(([name, value], index) => ({
+      id: name,
+      name,
+      quantity: `${Math.round(value.amount * 100) / 100} ${value.unit}`,
+      items: value.items,
+      color: categoryColors[index % categoryColors.length],
+    }));
+  }, [pickups]);
+
+  const scheduledPickups = useMemo(
+    () => pickups.filter((pickup) => pickup.status !== 'completed' && pickup.status !== 'cancelled'),
+    [pickups]
+  );
+
+  const pendingAmount = useMemo(
+    () =>
+      pickups
+        .filter((pickup) => pickup.status === 'pending' || pickup.status === 'assigned' || pickup.status === 'in_progress')
+        .reduce((sum, pickup) => sum + (pickup.amount || 0), 0),
+    [pickups]
+  );
+
+  const completedAmount = useMemo(
+    () => pickups.filter((pickup) => pickup.status === 'completed').reduce((sum, pickup) => sum + (pickup.amount || 0), 0),
+    [pickups]
+  );
+
+  const complianceRate = useMemo(() => {
+    if (!pickups.length) {
+      return 100;
+    }
+
+    const compliant = pickups.filter((pickup) => pickup.status === 'assigned' || pickup.status === 'completed').length;
+    return Math.round((compliant / pickups.length) * 100);
+  }, [pickups]);
+
+  const onTimeRate = useMemo(() => {
+    if (!pickups.length) {
+      return 100;
+    }
+
+    const active = pickups.filter((pickup) => pickup.status !== 'cancelled').length;
+    return Math.round((active / pickups.length) * 100);
+  }, [pickups]);
+
+  const complianceMetrics = [
+    { label: 'Compliance Rate', value: complianceRate, color: 'text-green-600' },
+    { label: 'On-time Pickups', value: onTimeRate, color: 'text-blue-600' },
+    { label: 'Documentation', value: pickups.length > 0 ? 100 : 0, color: 'text-purple-600' },
+  ];
+
+  const handleReschedule = (pickup: WastePickup) => {
     setSelectedPickup(pickup);
     setRescheduleModalOpen(true);
+  };
+
+  const canReschedulePickup = (pickup: WastePickup) => {
+    const requesterId = pickup.requesterId?._id;
+    if (!requesterId || !user?.id) {
+      return false;
+    }
+
+    return user.role === 'admin' || requesterId === user.id;
+  };
+
+  const submitReschedule = async (payload: {
+    pickupDate: string;
+    pickupTime: string;
+    location?: string;
+  }) => {
+    if (!token || !selectedPickup?._id) {
+      throw new Error('Missing pickup or session information');
+    }
+
+    await rescheduleWastePickupApi(token, selectedPickup._id, payload);
+    await loadPickups();
   };
 
   return (
@@ -97,13 +171,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
               <Button variant="outline" onClick={() => onNavigate('landing')}>
                 Home
               </Button>
-              <Button variant="outline" onClick={() => onNavigate('dashboard')}>
-                Retailer View
-              </Button>
-              <Button variant="outline" onClick={() => onNavigate('hospital')}>
-                Hospital View
-              </Button>
-              <Button variant="outline" onClick={() => useAuth().logout()}>
+              <Button variant="outline" onClick={logout}>
                 <LogOut className="w-4 h-4" />
               </Button>
             </div>
@@ -121,7 +189,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-red-500">
               <Trash2 className="w-8 h-8 text-red-500 mb-3" />
-              <h3 className="text-3xl mb-1">83 kg</h3>
+              <h3 className="text-3xl mb-1">{Math.round(pendingAmount * 100) / 100}</h3>
               <p className="text-sm text-gray-600">Pending disposal this month</p>
             </Card>
           </motion.div>
@@ -133,7 +201,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-green-500">
               <CheckCircle className="w-8 h-8 text-green-500 mb-3" />
-              <h3 className="text-3xl mb-1">245 kg</h3>
+              <h3 className="text-3xl mb-1">{Math.round(completedAmount * 100) / 100}</h3>
               <p className="text-sm text-gray-600">Safely disposed this year</p>
             </Card>
           </motion.div>
@@ -145,7 +213,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-blue-500">
               <Calendar className="w-8 h-8 text-blue-500 mb-3" />
-              <h3 className="text-3xl mb-1">2</h3>
+              <h3 className="text-3xl mb-1">{scheduledPickups.length}</h3>
               <p className="text-sm text-gray-600">Upcoming scheduled pickups</p>
             </Card>
           </motion.div>
@@ -157,7 +225,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-purple-500">
               <TrendingUp className="w-8 h-8 text-purple-500 mb-3" />
-              <h3 className="text-3xl mb-1">100%</h3>
+              <h3 className="text-3xl mb-1">{complianceRate}%</h3>
               <p className="text-sm text-gray-600">Compliance rate</p>
             </Card>
           </motion.div>
@@ -187,7 +255,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
               </div>
 
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                {wasteCategories.map((category, index) => (
+                {groupedCategories.map((category, index) => (
                   <motion.div
                     key={category.id}
                     initial={{ opacity: 0, y: 20 }}
@@ -211,6 +279,12 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
                     </div>
                   </motion.div>
                 ))}
+
+                {!loading && groupedCategories.length === 0 && (
+                  <div className="md:col-span-2 lg:col-span-4 p-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                    No waste categories yet. Schedule your first pickup request.
+                  </div>
+                )}
               </div>
 
               <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200">
@@ -245,9 +319,21 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
             </div>
 
             <div className="space-y-4">
+              {loading && (
+                <div className="p-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                  Loading scheduled pickups...
+                </div>
+              )}
+
+              {!loading && scheduledPickups.length === 0 && (
+                <div className="p-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                  No scheduled pickups available.
+                </div>
+              )}
+
               {scheduledPickups.map((pickup, index) => (
                 <motion.div
-                  key={pickup.id}
+                  key={pickup._id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
@@ -256,22 +342,24 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-medium">{pickup.facility}</h3>
+                        <h3 className="text-lg font-medium">
+                          {pickup.agencyId?.organizationName || pickup.agencyId?.name || pickup.requesterId?.organizationName || 'Awaiting agency assignment'}
+                        </h3>
                         <Badge
-                          variant={pickup.status === 'confirmed' ? 'default' : 'secondary'}
-                          className={pickup.status === 'confirmed' ? 'bg-green-100 text-green-700' : ''}
+                          variant={pickup.status === 'assigned' || pickup.status === 'completed' ? 'default' : 'secondary'}
+                          className={pickup.status === 'assigned' || pickup.status === 'completed' ? 'bg-green-100 text-green-700' : ''}
                         >
                           {pickup.status}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
                         <Shield className="w-4 h-4" />
-                        <span>{pickup.certification}</span>
+                        <span>{pickup.agencyId ? 'Assigned waste agency' : 'Awaiting admin assignment'}</span>
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-semibold text-gray-700 mb-1">
-                        {pickup.weight}
+                        {pickup.amount} {pickup.unit}
                       </div>
                     </div>
                   </div>
@@ -279,24 +367,21 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      <span>{pickup.date}</span>
+                      <span>{new Date(pickup.pickupDate).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="w-4 h-4 text-gray-400" />
-                      <span>{pickup.time}</span>
+                      <span>{pickup.pickupTime || 'Not specified'}</span>
                     </div>
                   </div>
 
+                  <div className="mb-4 text-sm text-gray-600 flex items-start gap-2">
+                    <MapPin className="w-4 h-4 mt-0.5 text-gray-400" />
+                    <span>{pickup.location}</span>
+                  </div>
+
                   <div className="flex gap-3">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      View Details
-                    </Button>
-                    {pickup.status === 'pending' && (
-                      <Button size="sm" className="flex-1 bg-gray-700 hover:bg-gray-800">
-                        Confirm
-                      </Button>
-                    )}
-                    {pickup.status === 'confirmed' && (
+                    {canReschedulePickup(pickup) && (
                       <Button size="sm" variant="outline" className="flex-1 text-red-600" onClick={() => handleReschedule(pickup)}>
                         Reschedule
                       </Button>
@@ -372,7 +457,14 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
       {rescheduleModalOpen && selectedPickup && (
         <ReschedulePickupModal
           isOpen={rescheduleModalOpen}
-          pickup={selectedPickup}
+          pickup={{
+            id: selectedPickup._id,
+            date: new Date(selectedPickup.pickupDate).toLocaleDateString(),
+            time: selectedPickup.pickupTime || 'Not specified',
+            facility: selectedPickup.agencyId?.organizationName || selectedPickup.agencyId?.name || 'Assigned agency',
+            location: selectedPickup.location,
+          }}
+          onSubmitReschedule={submitReschedule}
           onClose={() => setRescheduleModalOpen(false)}
         />
       )}
@@ -382,6 +474,7 @@ export function WasteDisposal({ onNavigate }: { onNavigate: (page: string) => vo
         <GeneralWastePickupModal
           isOpen={generalPickupModalOpen}
           onClose={() => setGeneralPickupModalOpen(false)}
+          onCreated={loadPickups}
         />
       )}
     </div>

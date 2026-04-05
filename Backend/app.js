@@ -8,6 +8,7 @@ import inventoryRoutes from "./src/routes/inventory.routes.js";
 import donationRoutes from "./src/routes/donations.routes.js";
 import wasteRoutes from "./src/routes/waste.routes.js";
 import adminRoutes from "./src/routes/admin.routes.js";
+import mlRoutes from "./src/routes/ml.routes.js";
 
 
 const app = express();
@@ -23,12 +24,10 @@ app.use("/notifications", notificationRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/inventory", inventoryRoutes);
-
-app.use("/notifications", notificationRoutes);
-app.use("/api/auth", authRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/waste", wasteRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/ml", mlRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Truck, Building2, DollarSign, AlertCircle, Package } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
+import { supplyMarketplaceRequestApi } from '../../lib/api';
 
 type HospitalDemand = {
-  id: number;
+  id: string;
   hospital: string;
   medicine: string;
   quantity: number;
@@ -16,34 +18,92 @@ type HospitalDemand = {
   mrp?: number;
 };
 
+type InventoryOption = {
+  id: string;
+  name: string;
+  quantity: number;
+};
+
 type SupplyMedicineModalProps = {
   isOpen: boolean;
   onClose: () => void;
   demand: HospitalDemand | null;
+  inventoryOptions: InventoryOption[];
+  onSupplied?: () => void;
 };
 
-export function SupplyMedicineModal({ isOpen, onClose, demand }: SupplyMedicineModalProps) {
+export function SupplyMedicineModal({
+  isOpen,
+  onClose,
+  demand,
+  inventoryOptions,
+  onSupplied,
+}: SupplyMedicineModalProps) {
+  const { token } = useAuth();
   const [pricePerPacket, setPricePerPacket] = useState('');
+  const [selectedInventoryId, setSelectedInventoryId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const matchingInventory = useMemo(
+    () => {
+      if (!demand) {
+        return [];
+      }
+
+      const quantityEligible = inventoryOptions.filter((item) => item.quantity >= demand.quantity);
+      const medicineToken = demand.medicine.toLowerCase().split(' ')[0];
+      const directMatches = quantityEligible.filter((item) =>
+        item.name.toLowerCase().includes(medicineToken)
+      );
+
+      return directMatches.length ? directMatches : quantityEligible;
+    },
+    [demand, inventoryOptions]
+  );
 
   if (!demand) return null;
 
+  const selectedInventory = matchingInventory.find((item) => item.id === selectedInventoryId);
   const mrp = demand.mrp || 120;
   const isPriceValid = Number(pricePerPacket) > 0 && Number(pricePerPacket) <= mrp;
+  const isInventoryValid = Boolean(selectedInventory);
   const totalPrice = demand.quantity * Number(pricePerPacket);
 
-  const handleConfirm = () => {
-    if (!isPriceValid) {
-      toast.error('Please enter a valid price');
+  const handleConfirm = async () => {
+    if (!isPriceValid || !isInventoryValid) {
+      toast.error('Please enter valid inventory and price values');
       return;
     }
 
-    toast.success('Supply confirmed!', {
-      description: `Transport scheduled for pickup. ${demand.quantity} packets will be delivered to ${demand.hospital}.`,
-      duration: 5000,
-    });
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
 
-    onClose();
-    setPricePerPacket('');
+    setSubmitting(true);
+
+    try {
+      await supplyMarketplaceRequestApi(token, demand.id, {
+        inventoryItemId: selectedInventory.id,
+        quantity: demand.quantity,
+        pricePerPacket: Number(pricePerPacket),
+      });
+
+      toast.success('Supply confirmed!', {
+        description: `${demand.quantity} packets will be supplied to ${demand.hospital}.`,
+        duration: 5000,
+      });
+
+      onClose();
+      setPricePerPacket('');
+      setSelectedInventoryId('');
+      onSupplied?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to supply request';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -110,6 +170,26 @@ export function SupplyMedicineModal({ isOpen, onClose, demand }: SupplyMedicineM
 
               {/* Price Input */}
               <div>
+                <Label htmlFor="supply-inventory">Inventory Item</Label>
+                <select
+                  id="supply-inventory"
+                  value={selectedInventoryId}
+                  onChange={(event) => setSelectedInventoryId(event.target.value)}
+                  className="mt-2 w-full h-10 px-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select inventory item</option>
+                  {matchingInventory.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} ({item.quantity} packets)
+                    </option>
+                  ))}
+                </select>
+                {!matchingInventory.length && (
+                  <p className="text-xs text-red-500 mt-1">No matching inventory has enough quantity for this request.</p>
+                )}
+              </div>
+
+              <div>
                 <Label htmlFor="supply-price">Selling Price per Packet</Label>
                 <div className="relative mt-2">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -174,11 +254,11 @@ export function SupplyMedicineModal({ isOpen, onClose, demand }: SupplyMedicineM
                 </Button>
                 <Button
                   onClick={handleConfirm}
-                  disabled={!isPriceValid}
+                  disabled={!isPriceValid || !isInventoryValid || submitting}
                   className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                 >
                   <Truck className="w-4 h-4 mr-2" />
-                  Confirm Supply
+                  {submitting ? 'Confirming...' : 'Confirm Supply'}
                 </Button>
               </div>
             </div>

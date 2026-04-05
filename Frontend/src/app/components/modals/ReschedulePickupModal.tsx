@@ -9,22 +9,31 @@ import { toast } from 'sonner';
 interface ReschedulePickupModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSubmitReschedule?: (payload: {
+    pickupDate: string;
+    pickupTime: string;
+    location?: string;
+    notes?: string;
+  }) => Promise<void>;
   pickup?: {
-    id: number;
+    id: string;
     date: string;
     time: string;
     facility: string;
+    location?: string;
   };
 }
 
-export function ReschedulePickupModal({ isOpen, onClose, pickup }: ReschedulePickupModalProps) {
+export function ReschedulePickupModal({ isOpen, onClose, pickup, onSubmitReschedule }: ReschedulePickupModalProps) {
   const [formData, setFormData] = useState({
     date: '',
     time: '',
+    location: '',
     notes: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.date || !formData.time) {
@@ -32,13 +41,30 @@ export function ReschedulePickupModal({ isOpen, onClose, pickup }: ReschedulePic
       return;
     }
 
-    // Simulate updating the pickup schedule
-    toast.success('Waste pickup schedule has been updated.', {
-      duration: 4000,
-    });
+    try {
+      setSubmitting(true);
 
-    onClose();
-    setFormData({ date: '', time: '', notes: '' });
+      if (onSubmitReschedule) {
+        await onSubmitReschedule({
+          pickupDate: formData.date,
+          pickupTime: formData.time,
+          location: formData.location.trim() || undefined,
+          notes: formData.notes.trim() || undefined,
+        });
+      }
+
+      toast.success('Waste pickup schedule has been updated.', {
+        duration: 4000,
+      });
+
+      onClose();
+      setFormData({ date: '', time: '', location: '', notes: '' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to reschedule pickup';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -160,6 +186,17 @@ export function ReschedulePickupModal({ isOpen, onClose, pickup }: ReschedulePic
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="location">Updated Location (Optional)</Label>
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder={pickup?.location || 'Enter updated location'}
+                    className="mt-2"
+                  />
+                </div>
+
                 <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
                   <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-amber-700">
@@ -179,10 +216,11 @@ export function ReschedulePickupModal({ isOpen, onClose, pickup }: ReschedulePic
                   </Button>
                   <Button
                     type="submit"
+                    disabled={submitting}
                     className="flex-1 bg-gradient-to-r from-gray-800 to-slate-700 hover:from-gray-900 hover:to-slate-800 gap-2"
                   >
                     <CheckCircle className="w-4 h-4" />
-                    Confirm Reschedule
+                    {submitting ? 'Rescheduling...' : 'Confirm Reschedule'}
                   </Button>
                 </div>
               </form>

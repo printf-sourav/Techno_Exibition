@@ -9,9 +9,14 @@ import { toast } from 'sonner';
 interface CreateRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSubmitRequest?: (payload: {
+    medicineName: string;
+    quantity: number;
+    priority: 'low' | 'medium' | 'high';
+  }) => Promise<void>;
 }
 
-export function CreateRequestModal({ isOpen, onClose }: CreateRequestModalProps) {
+export function CreateRequestModal({ isOpen, onClose, onSubmitRequest }: CreateRequestModalProps) {
   const [formData, setFormData] = useState({
     medicineName: '',
     quantity: '',
@@ -19,8 +24,9 @@ export function CreateRequestModal({ isOpen, onClose }: CreateRequestModalProps)
     priority: 'Medium',
     notes: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.medicineName || !formData.quantity || !formData.requiredBefore) {
@@ -28,19 +34,35 @@ export function CreateRequestModal({ isOpen, onClose }: CreateRequestModalProps)
       return;
     }
 
-    // Simulate sending request to retailers
-    toast.success('Request created and sent to nearby retailers.', {
-      duration: 4000,
-    });
+    try {
+      setSubmitting(true);
 
-    onClose();
-    setFormData({ 
-      medicineName: '', 
-      quantity: '', 
-      requiredBefore: '', 
-      priority: 'Medium', 
-      notes: '' 
-    });
+      if (onSubmitRequest) {
+        await onSubmitRequest({
+          medicineName: formData.medicineName.trim(),
+          quantity: Number(formData.quantity),
+          priority: formData.priority.toLowerCase() as 'low' | 'medium' | 'high',
+        });
+      }
+
+      toast.success('Request created and sent to nearby retailers.', {
+        duration: 4000,
+      });
+
+      onClose();
+      setFormData({
+        medicineName: '',
+        quantity: '',
+        requiredBefore: '',
+        priority: 'Medium',
+        notes: '',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create request';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -185,10 +207,11 @@ export function CreateRequestModal({ isOpen, onClose }: CreateRequestModalProps)
                   </Button>
                   <Button
                     type="submit"
+                    disabled={submitting}
                     className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 gap-2"
                   >
                     <Send className="w-4 h-4" />
-                    Send Request
+                    {submitting ? 'Sending...' : 'Send Request'}
                   </Button>
                 </div>
               </form>

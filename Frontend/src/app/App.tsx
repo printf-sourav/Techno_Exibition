@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth, UserRole } from './context/AuthContext';
 import { LandingPage } from './components/LandingPage';
@@ -10,14 +10,57 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { LoginPage } from './components/auth/LoginPage';
 import { SignupPage } from './components/auth/SignupPage';
 import { PendingApprovalPage } from './components/auth/PendingApprovalPage';
-import { Navigation } from './components/Navigation';
 
 type Page = 'landing' | 'dashboard' | 'hospital' | 'waste' | 'ngo' | 'admin' | 'login' | 'signup' | 'pending';
+
+const PROTECTED_PAGES: Page[] = ['dashboard', 'hospital', 'waste', 'ngo', 'admin', 'pending'];
+
+const getRoleHomePage = (role: UserRole): Page => {
+  if (role === 'retailer') {
+    return 'dashboard';
+  }
+
+  if (role === 'hospital') {
+    return 'hospital';
+  }
+
+  if (role === 'ngo') {
+    return 'ngo';
+  }
+
+  if (role === 'waste') {
+    return 'waste';
+  }
+
+  return 'admin';
+};
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('landing');
   const [signupRole, setSignupRole] = useState<UserRole | null>(null);
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated && PROTECTED_PAGES.includes(currentPage)) {
+      setCurrentPage('login');
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      return;
+    }
+
+    const roleHomePage = getRoleHomePage(user.role);
+    const allowedPages = new Set<Page>([roleHomePage]);
+
+    if (user.role === 'admin') {
+      allowedPages.add('pending');
+    }
+
+    if (PROTECTED_PAGES.includes(currentPage) && !allowedPages.has(currentPage)) {
+      setCurrentPage(roleHomePage);
+    }
+  }, [currentPage, isAuthenticated, user]);
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page as Page);
@@ -43,9 +86,6 @@ function AppContent() {
       {currentPage === 'ngo' && <NGODashboard onNavigate={handleNavigate} />}
       {currentPage === 'admin' && <AdminDashboard onNavigate={handleNavigate} />}
       {currentPage === 'pending' && <PendingApprovalPage onNavigate={handleNavigate} />}
-      {currentPage !== 'landing' && currentPage !== 'login' && currentPage !== 'signup' && currentPage !== 'pending' && (
-        <Navigation currentPage={currentPage} onNavigate={handleNavigate} />
-      )}
     </div>
   );
 }

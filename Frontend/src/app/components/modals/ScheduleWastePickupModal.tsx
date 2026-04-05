@@ -5,6 +5,8 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
+import { createWastePickupApi } from '../../lib/api';
 
 type Medicine = {
   id: number;
@@ -17,13 +19,16 @@ type ScheduleWastePickupModalProps = {
   isOpen: boolean;
   onClose: () => void;
   medicine: Medicine | null;
+  onCreated?: () => void;
 };
 
-export function ScheduleWastePickupModal({ isOpen, onClose, medicine }: ScheduleWastePickupModalProps) {
+export function ScheduleWastePickupModal({ isOpen, onClose, medicine, onCreated }: ScheduleWastePickupModalProps) {
+  const { token, user } = useAuth();
   const [pickupDate, setPickupDate] = useState('');
   const [pickupTime, setPickupTime] = useState('');
   const [wasteAmount, setWasteAmount] = useState('');
   const [wasteUnit, setWasteUnit] = useState<'kg' | 'packets'>('packets');
+  const [submitting, setSubmitting] = useState(false);
 
   if (!medicine) return null;
 
@@ -35,21 +40,44 @@ export function ScheduleWastePickupModal({ isOpen, onClose, medicine }: Schedule
   const isAmountValid = Number(wasteAmount) > 0;
   const isFormValid = isDateValid && isTimeValid && isAmountValid;
 
-  const handleSchedule = () => {
+  const handleSchedule = async () => {
     if (!isFormValid) {
       toast.error('Please fill all fields correctly');
       return;
     }
 
-    toast.success('Pickup scheduled successfully!', {
-      description: `Pickup has been scheduled for ${new Date(pickupDate).toLocaleDateString()}. A digital compliance certificate will be issued after disposal.`,
-      duration: 6000,
-    });
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
 
-    onClose();
-    setPickupDate('');
-    setPickupTime('');
-    setWasteAmount('');
+    try {
+      setSubmitting(true);
+      await createWastePickupApi(token, {
+        wasteType: medicine.name,
+        amount: Number(wasteAmount),
+        unit: wasteUnit,
+        pickupDate,
+        pickupTime,
+        location: user?.organizationName || user?.address || 'Retailer location',
+      });
+
+      toast.success('Pickup scheduled successfully!', {
+        description: `Pickup has been scheduled for ${new Date(pickupDate).toLocaleDateString()}. A digital compliance certificate will be issued after disposal.`,
+        duration: 6000,
+      });
+
+      onClose();
+      setPickupDate('');
+      setPickupTime('');
+      setWasteAmount('');
+      onCreated?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to schedule pickup';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -247,11 +275,11 @@ export function ScheduleWastePickupModal({ isOpen, onClose, medicine }: Schedule
                 </Button>
                 <Button
                   onClick={handleSchedule}
-                  disabled={!isFormValid}
+                  disabled={!isFormValid || submitting}
                   className="flex-1 bg-gradient-to-r from-gray-600 to-slate-700 hover:from-gray-700 hover:to-slate-800"
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
-                  Schedule Pickup
+                  {submitting ? 'Scheduling...' : 'Schedule Pickup'}
                 </Button>
               </div>
             </div>

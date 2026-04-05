@@ -16,8 +16,6 @@ const publicRegistrationRoles = new Set(["retailer", "hospital", "ngo", "waste"]
 const isBlank = (value) => value === undefined || value === null || String(value).trim() === ""
 
 export const register = asyncHandler(async(req,res)=>{
-    const payload = req.body && typeof req.body === "object" ? req.body : {}
-
     const {
         name,
         email,
@@ -34,7 +32,7 @@ export const register = asyncHandler(async(req,res)=>{
         address,
         phone,
         contactNumber
-    } = payload
+    } = req.body
 
     const requestedRole = String(role || "").trim().toLowerCase()
 
@@ -130,8 +128,9 @@ export const register = asyncHandler(async(req,res)=>{
 })
 
 export const login = asyncHandler(async(req,res)=>{
-    const payload = req.body && typeof req.body === "object" ? req.body : {}
-    const { email, password } = payload
+    
+
+    const { email, password } = req.body
     
     if(!email||!password) {
         throw new ApiError(400,"Email or password missing")

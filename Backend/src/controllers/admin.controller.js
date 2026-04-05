@@ -49,6 +49,26 @@ export const getPendingUsers = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, users, "Pending users fetched"));
 });
 
+export const getUsers = asyncHandler(async (req, res) => {
+  const { role, verificationStatus } = req.query;
+
+  const filter = {};
+
+  if (role) {
+    filter.role = String(role);
+  }
+
+  if (verificationStatus) {
+    filter.verificationStatus = String(verificationStatus);
+  }
+
+  const users = await User.find(filter)
+    .select("-passwordHash")
+    .sort({ createdAt: -1 });
+
+  return res.status(200).json(new ApiResponse(200, users, "Users fetched"));
+});
+
 export const approveUser = asyncHandler(async (req, res) => {
   const { id } = req.params;
   ensureObjectId(id, "user id");

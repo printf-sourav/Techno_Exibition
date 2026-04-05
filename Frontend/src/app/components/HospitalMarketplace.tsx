@@ -9,93 +9,15 @@ import { RequestMedicineModal } from './modals/RequestMedicineModal';
 import { CreateRequestModal } from './modals/CreateRequestModal';
 import { FloatingCapsules } from './FloatingCapsules';
 import { useAuth } from '../context/AuthContext';
-
-const availableMedicines = [
-  {
-    id: 1,
-    name: 'Metformin 850mg',
-    retailer: 'MedPlus Pharmacy',
-    quantity: 180,
-    expiry: '15 days',
-    distance: '2.3 km',
-    price: '₹1,200',
-    discount: '40% off',
-    rating: 4.8,
-    urgency: 'high',
-  },
-  {
-    id: 2,
-    name: 'Amoxicillin 500mg',
-    retailer: 'Apollo Pharmacy',
-    quantity: 250,
-    expiry: '45 days',
-    distance: '4.7 km',
-    price: '₹2,100',
-    discount: '25% off',
-    rating: 4.9,
-    urgency: 'medium',
-  },
-  {
-    id: 3,
-    name: 'Atorvastatin 20mg',
-    retailer: 'Wellness Forever',
-    quantity: 150,
-    expiry: '30 days',
-    distance: '3.1 km',
-    price: '₹1,800',
-    discount: '35% off',
-    rating: 4.7,
-    urgency: 'high',
-  },
-  {
-    id: 4,
-    name: 'Omeprazole 40mg',
-    retailer: 'Netmeds Retail',
-    quantity: 95,
-    expiry: '12 days',
-    distance: '1.8 km',
-    price: '₹950',
-    discount: '50% off',
-    rating: 4.6,
-    urgency: 'critical',
-  },
-  {
-    id: 5,
-    name: 'Lisinopril 10mg',
-    retailer: 'HealthKart Pharmacy',
-    quantity: 320,
-    expiry: '78 days',
-    distance: '5.2 km',
-    price: '₹3,200',
-    discount: '15% off',
-    rating: 4.5,
-    urgency: 'low',
-  },
-];
-
-const myRequests = [
-  {
-    id: 1,
-    medicine: 'Metformin 850mg',
-    quantity: 100,
-    status: 'matched',
-    matches: 3,
-  },
-  {
-    id: 2,
-    medicine: 'Insulin Glargine',
-    quantity: 50,
-    status: 'pending',
-    matches: 0,
-  },
-  {
-    id: 3,
-    medicine: 'Levothyroxine 100mcg',
-    quantity: 200,
-    status: 'matched',
-    matches: 1,
-  },
-];
+import { toast } from 'sonner';
+import {
+  acceptHospitalOfferApi,
+  createMarketplaceRequestApi,
+  getHospitalIncomingOffersApi,
+  getHospitalMedicinesApi,
+  getMarketplaceRequestsApi,
+  type Offer,
+} from '../lib/api';
 
 export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string) => void }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,20 +25,161 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [createRequestModalOpen, setCreateRequestModalOpen] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState('');
+  const [availableMedicines, setAvailableMedicines] = useState<any[]>([]);
+  const [myRequests, setMyRequests] = useState<any[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Load incoming supply offers from localStorage
-    const hospitalRequests = JSON.parse(localStorage.getItem('medisync_hospital_requests') || '[]');
-    setIncomingRequests(hospitalRequests);
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   const handleRequestMedicine = (medicineName: string) => {
     setSelectedMedicine(medicineName);
     setRequestModalOpen(true);
   };
 
-  const { logout } = useAuth();
+  const { logout, token } = useAuth();
+
+  const getDaysToExpiry = (expiryDate?: string) => {
+    if (!expiryDate) {
+      return 90;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiry = new Date(expiryDate);
+    expiry.setHours(0, 0, 0, 0);
+    return Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const resolveUrgency = (days: number) => {
+    if (days <= 10) {
+      return 'critical';
+    }
+    if (days <= 30) {
+      return 'high';
+    }
+    if (days <= 60) {
+      return 'medium';
+    }
+    return 'low';
+  };
+
+  const loadMarketplaceData = async () => {
+    if (!token) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const [medicines, requests, incomingOffers] = await Promise.all([
+        getHospitalMedicinesApi(token),
+        getMarketplaceRequestsApi(token),
+        getHospitalIncomingOffersApi(token),
+      ]);
+
+      const mappedMedicines = medicines.map((offer: Offer) => {
+        const days = getDaysToExpiry(offer.inventoryItemId?.expiryDate);
+        return {
+          id: offer._id,
+          name: offer.medicineName,
+          retailer: offer.retailerId?.organizationName || offer.retailerId?.name || 'Retailer',
+          quantity: offer.quantity,
+          expiry: `${Math.max(days, 0)} days`,
+          distance: 'network',
+          price: `₹${Math.round(offer.totalPrice).toLocaleString()}`,
+          discount: 'Marketplace rate',
+          rating: 4.8,
+          urgency: resolveUrgency(days),
+        };
+      });
+
+      const mappedRequests = requests.map((request) => ({
+        id: request._id,
+        medicine: request.medicineName,
+        quantity: request.quantity,
+        status: request.status,
+        matches: request.status === 'matched' ? 1 : 0,
+      }));
+
+      const mappedIncoming = incomingOffers.map((offer) => ({
+        id: offer._id,
+        medicineName: offer.medicineName,
+        retailerName: offer.retailerId?.organizationName || offer.retailerId?.name || 'Retailer',
+        quantity: offer.quantity,
+        pricePerPacket: offer.pricePerPacket,
+        totalPrice: offer.totalPrice,
+        location: 'network',
+      }));
+
+      setAvailableMedicines(mappedMedicines);
+      setMyRequests(mappedRequests);
+      setIncomingRequests(mappedIncoming);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to load marketplace data';
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMarketplaceData();
+  }, [token]);
+
+  const createRequest = async (payload: {
+    medicineName: string;
+    quantity: number;
+    priority: 'low' | 'medium' | 'high';
+  }) => {
+    if (!token) {
+      throw new Error('Please login again to continue');
+    }
+
+    await createMarketplaceRequestApi(token, payload);
+    await loadMarketplaceData();
+  };
+
+  const handleAcceptIncomingOffer = async (offerId: string) => {
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
+
+    try {
+      await acceptHospitalOfferApi(token, offerId);
+      toast.success('Offer accepted successfully');
+      await loadMarketplaceData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to accept offer';
+      toast.error(message);
+    }
+  };
+
+  const filteredMedicines = availableMedicines.filter((medicine) => {
+    const matchesSearch = medicine.name.toLowerCase().includes(searchTerm.toLowerCase());
+
+    if (!matchesSearch) {
+      return false;
+    }
+
+    if (selectedFilter === 'all') {
+      return true;
+    }
+
+    if (selectedFilter === 'critical') {
+      return medicine.urgency === 'critical' || medicine.urgency === 'high';
+    }
+
+    if (selectedFilter === 'nearby') {
+      return true;
+    }
+
+    if (selectedFilter === 'high-discount') {
+      return true;
+    }
+
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/40 relative">
@@ -135,12 +198,6 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => onNavigate('landing')}>
                 Home
-              </Button>
-              <Button variant="outline" onClick={() => onNavigate('dashboard')}>
-                Retailer View
-              </Button>
-              <Button variant="outline" onClick={() => onNavigate('waste')}>
-                Waste Disposal
               </Button>
               <Button variant="outline" onClick={logout}>
                 <LogOut className="w-4 h-4" />
@@ -161,7 +218,7 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-blue-500">
               <Package className="w-8 h-8 text-blue-500 mb-3" />
-              <h3 className="text-3xl mb-1">247</h3>
+              <h3 className="text-3xl mb-1">{availableMedicines.length}</h3>
               <p className="text-sm text-gray-600">Available medicines</p>
             </Card>
           </motion.div>
@@ -173,7 +230,7 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-green-500">
               <CheckCircle className="w-8 h-8 text-green-500 mb-3" />
-              <h3 className="text-3xl mb-1">18</h3>
+              <h3 className="text-3xl mb-1">{myRequests.filter((request) => request.status !== 'pending').length}</h3>
               <p className="text-sm text-gray-600">Active requests matched</p>
             </Card>
           </motion.div>
@@ -185,7 +242,7 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-purple-500">
               <TrendingUp className="w-8 h-8 text-purple-500 mb-3" />
-              <h3 className="text-3xl mb-1">₹4.2L</h3>
+              <h3 className="text-3xl mb-1">₹{incomingRequests.reduce((total, offer) => total + offer.totalPrice, 0).toLocaleString()}</h3>
               <p className="text-sm text-gray-600">Cost savings this month</p>
             </Card>
           </motion.div>
@@ -197,7 +254,7 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
           >
             <Card className="p-6 bg-white/80 backdrop-blur-xl border-l-4 border-l-orange-500">
               <Clock className="w-8 h-8 text-orange-500 mb-3" />
-              <h3 className="text-3xl mb-1">45</h3>
+              <h3 className="text-3xl mb-1">{incomingRequests.length ? 30 : 0}</h3>
               <p className="text-sm text-gray-600">Avg. delivery time (mins)</p>
             </Card>
           </motion.div>
@@ -247,7 +304,19 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
 
             {/* Available Medicines */}
             <div className="space-y-4">
-              {availableMedicines.map((medicine, index) => (
+              {loading && (
+                <Card className="p-6 bg-white/80 backdrop-blur-xl text-sm text-gray-600">
+                  Loading live marketplace inventory...
+                </Card>
+              )}
+
+              {!loading && filteredMedicines.length === 0 && (
+                <Card className="p-6 bg-white/80 backdrop-blur-xl text-sm text-gray-600">
+                  No medicines matched your filters.
+                </Card>
+              )}
+
+              {filteredMedicines.map((medicine, index) => (
                 <motion.div
                   key={medicine.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -408,9 +477,10 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
                         <div className="mt-3 pt-3 border-t border-teal-200">
                           <Button 
                             size="sm" 
+                            onClick={() => handleAcceptIncomingOffer(request.id)}
                             className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600"
                           >
-                            View Details
+                            Accept Offer
                           </Button>
                         </div>
                       </motion.div>
@@ -429,6 +499,12 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
               <Card className="p-6 bg-white/80 backdrop-blur-xl">
                 <h2 className="text-xl mb-4">My Requests</h2>
                 <div className="space-y-3">
+                  {!loading && myRequests.length === 0 && (
+                    <div className="p-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                      You have not created any medicine requests yet.
+                    </div>
+                  )}
+
                   {myRequests.map((request) => (
                     <div
                       key={request.id}
@@ -497,12 +573,12 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
               <Card className="p-6 bg-gradient-to-br from-teal-500 to-cyan-500 text-white">
                 <TrendingUp className="w-10 h-10 mb-4 opacity-80" />
                 <h2 className="text-xl mb-2">Total Savings</h2>
-                <div className="text-4xl mb-2">₹12.8L</div>
+                <div className="text-4xl mb-2">₹{incomingRequests.reduce((total, offer) => total + offer.totalPrice, 0).toLocaleString()}</div>
                 <p className="text-sm opacity-90">Since joining Medisync</p>
                 <div className="mt-4 pt-4 border-t border-white/20">
                   <div className="flex justify-between text-sm">
                     <span>This month</span>
-                    <span className="font-semibold">↑ 23%</span>
+                    <span className="font-semibold">{myRequests.length} requests</span>
                   </div>
                 </div>
               </Card>
@@ -516,10 +592,12 @@ export function HospitalMarketplace({ onNavigate }: { onNavigate: (page: string)
         isOpen={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
         medicineName={selectedMedicine}
+        onSubmitRequest={createRequest}
       />
       <CreateRequestModal
         isOpen={createRequestModalOpen}
         onClose={() => setCreateRequestModalOpen(false)}
+        onSubmitRequest={createRequest}
       />
     </div>
   );

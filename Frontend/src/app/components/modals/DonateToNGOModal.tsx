@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Heart, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -6,9 +6,11 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { toast } from 'sonner';
+import { useAuth } from '../../context/AuthContext';
+import { createDonationApi, getNgoNeedsApi, type NgoNeed } from '../../lib/api';
 
 type Medicine = {
-  id: number;
+  id: string;
   name: string;
   batch: string;
   quantity: number;
@@ -18,39 +20,100 @@ type DonateToNGOModalProps = {
   isOpen: boolean;
   onClose: () => void;
   medicine: Medicine | null;
+  onDonated?: () => void;
 };
 
-const registeredNGOs = [
-  { id: 1, name: 'Health for All Foundation', verified: true },
-  { id: 2, name: 'Medical Aid Network', verified: true },
-  { id: 3, name: 'Community Care Initiative', verified: true },
-  { id: 4, name: 'Hope Healthcare Trust', verified: true },
-];
-
-export function DonateToNGOModal({ isOpen, onClose, medicine }: DonateToNGOModalProps) {
+export function DonateToNGOModal({ isOpen, onClose, medicine, onDonated }: DonateToNGOModalProps) {
+  const { token } = useAuth();
   const [donationPackets, setDonationPackets] = useState('');
-  const [selectedNGO, setSelectedNGO] = useState('');
+  const [selectedNeedId, setSelectedNeedId] = useState('');
+  const [openNeeds, setOpenNeeds] = useState<NgoNeed[]>([]);
+  const [loadingNeeds, setLoadingNeeds] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   if (!medicine) return null;
 
+  useEffect(() => {
+    if (!isOpen || !token) {
+      return;
+    }
+
+    const loadNeeds = async () => {
+      setLoadingNeeds(true);
+      try {
+        const needs = await getNgoNeedsApi(token, { status: 'open' });
+        setOpenNeeds(needs);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load NGO needs';
+        toast.error(message);
+      } finally {
+        setLoadingNeeds(false);
+      }
+    };
+
+    loadNeeds();
+  }, [isOpen, token]);
+
+  const selectedNeed = useMemo(
+    () => openNeeds.find((need) => need._id === selectedNeedId),
+    [openNeeds, selectedNeedId]
+  );
+
   const isQuantityValid = Number(donationPackets) > 0 && Number(donationPackets) <= medicine.quantity;
 
-  const handleSendRequest = () => {
-    if (!isQuantityValid || !selectedNGO) {
+  const getNgoId = (need: NgoNeed) => {
+    if (typeof need.ngoId === 'string') {
+      return need.ngoId;
+    }
+
+    return need.ngoId?._id || '';
+  };
+
+  const getNgoName = (need: NgoNeed) => {
+    if (typeof need.ngoId === 'string') {
+      return 'NGO';
+    }
+
+    return need.ngoId?.organizationName || need.ngoId?.name || 'NGO';
+  };
+
+  const handleSendRequest = async () => {
+    if (!isQuantityValid || !selectedNeed || !token) {
       toast.error('Please fill all fields correctly');
       return;
     }
 
-    const ngo = registeredNGOs.find(n => n.id.toString() === selectedNGO);
-    
-    toast.success('Donation request sent!', {
-      description: `Your donation request has been sent to ${ngo?.name}. You will be notified once they accept.`,
-      duration: 5000,
-    });
+    const recipientNgoId = getNgoId(selectedNeed);
+    if (!recipientNgoId) {
+      toast.error('Selected NGO is invalid');
+      return;
+    }
 
-    onClose();
-    setDonationPackets('');
-    setSelectedNGO('');
+    try {
+      setSubmitting(true);
+
+      await createDonationApi(token, {
+        recipientNgoId,
+        inventoryItemId: medicine.id,
+        quantity: Number(donationPackets),
+        ngoNeedId: selectedNeed._id,
+      });
+
+      toast.success('Donation request sent!', {
+        description: `Your donation has been sent to ${getNgoName(selectedNeed)}.`,
+        duration: 5000,
+      });
+
+      onClose();
+      setDonationPackets('');
+      setSelectedNeedId('');
+      onDonated?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create donation';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -133,22 +196,26 @@ export function DonateToNGOModal({ isOpen, onClose, medicine }: DonateToNGOModal
 
               {/* Select NGO */}
               <div>
-                <Label htmlFor="ngo">Select NGO</Label>
-                <Select value={selectedNGO} onValueChange={setSelectedNGO}>
+                <Label htmlFor="ngo">Select NGO Need</Label>
+                <Select value={selectedNeedId} onValueChange={setSelectedNeedId}>
                   <SelectTrigger className="mt-2">
-                    <SelectValue placeholder="Choose a registered NGO" />
+                    <SelectValue placeholder={loadingNeeds ? 'Loading NGO needs...' : 'Choose an open NGO need'} />
                   </SelectTrigger>
                   <SelectContent>
-                    {registeredNGOs.map((ngo) => (
-                      <SelectItem key={ngo.id} value={ngo.id.toString()}>
+                    {openNeeds.map((need) => (
+                      <SelectItem key={need._id} value={need._id}>
                         <div className="flex items-center gap-2">
-                          {ngo.name}
-                          {ngo.verified && <CheckCircle className="w-3 h-3 text-green-500" />}
+                          {getNgoName(need)}
+                          <span className="text-xs text-gray-500">{need.medicineName}</span>
+                          <CheckCircle className="w-3 h-3 text-green-500" />
                         </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {!loadingNeeds && openNeeds.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-2">No open NGO needs are available right now.</p>
+                )}
               </div>
 
               {/* Donation Info */}
@@ -166,7 +233,7 @@ export function DonateToNGOModal({ isOpen, onClose, medicine }: DonateToNGOModal
               </div>
 
               {/* Summary */}
-              {donationPackets && isQuantityValid && selectedNGO && (
+              {donationPackets && isQuantityValid && selectedNeed && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -184,7 +251,11 @@ export function DonateToNGOModal({ isOpen, onClose, medicine }: DonateToNGOModal
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">NGO:</span>
-                      <span className="font-medium">{registeredNGOs.find(n => n.id.toString() === selectedNGO)?.name}</span>
+                      <span className="font-medium">{getNgoName(selectedNeed)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Need:</span>
+                      <span className="font-medium">{selectedNeed.medicineName}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -201,11 +272,11 @@ export function DonateToNGOModal({ isOpen, onClose, medicine }: DonateToNGOModal
                 </Button>
                 <Button
                   onClick={handleSendRequest}
-                  disabled={!isQuantityValid || !selectedNGO}
+                  disabled={!isQuantityValid || !selectedNeedId || submitting || loadingNeeds}
                   className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
                 >
                   <Heart className="w-4 h-4 mr-2" />
-                  Send Donation Request
+                  {submitting ? 'Sending...' : 'Send Donation Request'}
                 </Button>
               </div>
             </div>

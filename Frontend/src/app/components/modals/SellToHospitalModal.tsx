@@ -6,9 +6,10 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
+import { createMarketplaceOfferApi } from '../../lib/api';
 
 type Medicine = {
-  id: number;
+  id: string;
   name: string;
   batch: string;
   quantity: number;
@@ -30,9 +31,10 @@ const nearbyHospitals = [
 ];
 
 export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospitalModalProps) {
-  const { user } = useAuth();
+  const { token } = useAuth();
   const [packets, setPackets] = useState('');
   const [pricePerPacket, setPricePerPacket] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   if (!medicine) return null;
 
@@ -43,41 +45,42 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
   const isPriceValid = Number(pricePerPacket) > 0 && Number(pricePerPacket) <= maxPrice;
   const isQuantityValid = Number(packets) > 0 && Number(packets) <= medicine.quantity;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!isPriceValid || !isQuantityValid) {
       toast.error('Please fill all fields correctly');
       return;
     }
 
-    // Save the request to localStorage to be broadcasted to all nearby hospitals
-    const existingRequests = JSON.parse(localStorage.getItem('medisync_hospital_requests') || '[]');
-    
-    const newRequest = {
-      id: `hospital-req-${Date.now()}`,
-      medicineName: medicine.name,
-      batch: medicine.batch,
-      quantity: Number(packets),
-      pricePerPacket: Number(pricePerPacket),
-      totalPrice: totalPrice,
-      retailerName: user?.organizationName || user?.name || 'Unknown Retailer',
-      retailerEmail: user?.email || '',
-      location: user?.address || 'Location not specified',
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
 
-    existingRequests.push(newRequest);
-    localStorage.setItem('medisync_hospital_requests', JSON.stringify(existingRequests));
+    setSubmitting(true);
 
-    toast.success('Request sent to nearby hospitals!', {
-      description: 'This medicine order request has been sent to nearby hospitals.',
-      duration: 5000,
-    });
+    try {
+      await createMarketplaceOfferApi(token, {
+        inventoryItemId: medicine.id,
+        medicineName: medicine.name,
+        batchNumber: medicine.batch,
+        quantity: Number(packets),
+        pricePerPacket: Number(pricePerPacket),
+      });
 
-    onClose();
-    // Reset form
-    setPackets('');
-    setPricePerPacket('');
+      toast.success('Offer published in hospital marketplace', {
+        description: 'Nearby hospitals can now view and accept this offer.',
+        duration: 5000,
+      });
+
+      onClose();
+      setPackets('');
+      setPricePerPacket('');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create offer';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -221,11 +224,11 @@ export function SellToHospitalModal({ isOpen, onClose, medicine }: SellToHospita
                 </Button>
                 <Button
                   onClick={handleConfirm}
-                  disabled={!isPriceValid || !isQuantityValid}
+                  disabled={!isPriceValid || !isQuantityValid || submitting}
                   className="flex-1 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600"
                 >
                   <Building2 className="w-4 h-4 mr-2" />
-                  Request Order to Hospitals
+                  {submitting ? 'Publishing...' : 'Request Order to Hospitals'}
                 </Button>
               </div>
             </div>

@@ -224,9 +224,11 @@ export const getRequests = asyncHandler(async (req, res) => {
   if (req.user.role === "hospital") {
     requests = await MedicineRequest.find({ hospitalId: req.user.id }).sort({ createdAt: -1 });
   } else if (req.user.role === "retailer") {
-    requests = await MedicineRequest.find({ status: { $in: ["pending", "matched"] } }).sort({
-      createdAt: -1,
-    });
+    requests = await MedicineRequest.find({ status: { $in: ["pending", "matched"] } })
+      .populate("hospitalId", "name organizationName address")
+      .sort({
+        createdAt: -1,
+      });
   } else {
     throw new ApiError(403, "Access denied");
   }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Truck, Calendar as CalendarIcon, Clock, Package, AlertCircle, MapPin } from 'lucide-react';
 import { Button } from '../ui/button';
@@ -6,20 +6,23 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
+import { createWastePickupApi } from '../../lib/api';
 
 type GeneralWastePickupModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  onCreated?: () => void;
 };
 
-export function GeneralWastePickupModal({ isOpen, onClose }: GeneralWastePickupModalProps) {
-  const { user } = useAuth();
+export function GeneralWastePickupModal({ isOpen, onClose, onCreated }: GeneralWastePickupModalProps) {
+  const { user, token } = useAuth();
   const [wasteType, setWasteType] = useState('');
   const [wasteAmount, setWasteAmount] = useState('');
   const [wasteUnit, setWasteUnit] = useState<'kg' | 'packets'>('packets');
   const [pickupDate, setPickupDate] = useState('');
   const [pickupTime, setPickupTime] = useState('');
   const [location, setLocation] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   // Get minimum date (today)
   const today = new Date().toISOString().split('T')[0];
@@ -31,44 +34,57 @@ export function GeneralWastePickupModal({ isOpen, onClose }: GeneralWastePickupM
   const isLocationValid = location.trim() !== '';
   const isFormValid = isDateValid && isTimeValid && isAmountValid && isWasteTypeValid && isLocationValid;
 
-  const handleSchedule = () => {
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (!location && user?.address) {
+      setLocation(user.address);
+    }
+  }, [isOpen, location, user?.address]);
+
+  const handleSchedule = async () => {
     if (!isFormValid) {
       toast.error('Please fill all fields correctly');
       return;
     }
 
-    // Save pickup request to localStorage
-    const existingRequests = JSON.parse(localStorage.getItem('medisync_waste_pickups') || '[]');
-    
-    const newRequest = {
-      id: `waste-${Date.now()}`,
-      pharmacyName: location,
-      wasteType,
-      amount: `${wasteAmount} ${wasteUnit}`,
-      pickupDate,
-      pickupTime,
-      location,
-      status: 'pending',
-      requestedBy: user?.email || 'Unknown',
-      requestedAt: new Date().toISOString(),
-      assignedAgency: null,
-    };
+    if (!token) {
+      toast.error('Please login again to continue');
+      return;
+    }
 
-    existingRequests.push(newRequest);
-    localStorage.setItem('medisync_waste_pickups', JSON.stringify(existingRequests));
+    try {
+      setSubmitting(true);
 
-    toast.success('Pickup request submitted!', {
-      description: 'Your pickup request has been sent to the admin. Admin will assign the nearest waste pickup agency.',
-      duration: 6000,
-    });
+      await createWastePickupApi(token, {
+        wasteType: wasteType.trim(),
+        amount: Number(wasteAmount),
+        unit: wasteUnit,
+        pickupDate,
+        pickupTime,
+        location: location.trim(),
+      });
 
-    onClose();
-    // Reset form
-    setWasteType('');
-    setWasteAmount('');
-    setPickupDate('');
-    setPickupTime('');
-    setLocation('');
+      toast.success('Pickup request submitted!', {
+        description: 'Your pickup request has been sent to the admin. Admin will assign the nearest waste pickup agency.',
+        duration: 6000,
+      });
+
+      onClose();
+      setWasteType('');
+      setWasteAmount('');
+      setPickupDate('');
+      setPickupTime('');
+      setLocation(user?.address || '');
+      onCreated?.();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to schedule pickup';
+      toast.error(message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -287,11 +303,11 @@ export function GeneralWastePickupModal({ isOpen, onClose }: GeneralWastePickupM
                 </Button>
                 <Button
                   onClick={handleSchedule}
-                  disabled={!isFormValid}
+                  disabled={!isFormValid || submitting}
                   className="flex-1 bg-gradient-to-r from-gray-600 to-slate-700 hover:from-gray-700 hover:to-slate-800"
                 >
                   <Truck className="w-4 h-4 mr-2" />
-                  Submit Request
+                  {submitting ? 'Submitting...' : 'Submit Request'}
                 </Button>
               </div>
             </div>

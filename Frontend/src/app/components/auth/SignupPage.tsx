@@ -32,8 +32,11 @@ export function SignupPage({ role, onNavigate, onBack }: SignupPageProps) {
 
   const handleFileUpload = (field: string, file: File | null) => {
     if (file) {
-      // Mock file upload - in production this would upload to a server
-      setFormData((prev: any) => ({ ...prev, [field]: file.name }));
+      setFormData((prev: any) => ({
+        ...prev,
+        [field]: file,
+        [`${field}Name`]: file.name,
+      }));
     }
   };
 
@@ -199,7 +202,7 @@ export function SignupPage({ role, onNavigate, onBack }: SignupPageProps) {
                       <label htmlFor="license-upload" className="cursor-pointer">
                         <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">
-                          {formData.licenseCertificate || 'Click to upload PDF or Image'}
+                          {formData.licenseCertificateName || 'Click to upload PDF or Image'}
                         </p>
                       </label>
                     </div>
@@ -242,7 +245,7 @@ export function SignupPage({ role, onNavigate, onBack }: SignupPageProps) {
                       <label htmlFor="hospital-upload" className="cursor-pointer">
                         <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">
-                          {formData.registrationCertificate || 'Click to upload PDF or Image'}
+                          {formData.registrationCertificateName || 'Click to upload PDF or Image'}
                         </p>
                       </label>
                     </div>
@@ -297,7 +300,7 @@ export function SignupPage({ role, onNavigate, onBack }: SignupPageProps) {
                       <label htmlFor="ngo-upload" className="cursor-pointer">
                         <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">
-                          {formData.registrationCertificate || 'Click to upload PDF or Image'}
+                          {formData.registrationCertificateName || 'Click to upload PDF or Image'}
                         </p>
                       </label>
                     </div>
@@ -350,7 +353,7 @@ export function SignupPage({ role, onNavigate, onBack }: SignupPageProps) {
                       <label htmlFor="waste-upload" className="cursor-pointer">
                         <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-sm text-gray-600">
-                          {formData.authorizationCertificate || 'Click to upload PDF or Image'}
+                          {formData.authorizationCertificateName || 'Click to upload PDF or Image'}
                         </p>
                       </label>
                     </div>
