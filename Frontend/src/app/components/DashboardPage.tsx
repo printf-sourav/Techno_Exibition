@@ -193,6 +193,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
   const [inventoryStatusFilter, setInventoryStatusFilter] = useState<'all' | InventoryView['status']>('all');
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
+  const [preferredNgoNeedId, setPreferredNgoNeedId] = useState<string | undefined>(undefined);
   
   // Modal states
   const [sellModalOpen, setSellModalOpen] = useState(false);
@@ -215,7 +216,33 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
   };
 
   const handleDonateClick = (item: InventoryView) => {
+    setPreferredNgoNeedId(undefined);
     setSelectedInventoryItem(item);
+    setDonateModalOpen(true);
+  };
+
+  const handleDonateFromNeed = (need: { id: string; request: string }) => {
+    const normalizedNeed = need.request.trim().toLowerCase();
+    const matchingItem = inventoryData.find((item) => {
+      if (item.quantity <= 0) {
+        return false;
+      }
+
+      const normalizedItemName = item.name.trim().toLowerCase();
+      return (
+        normalizedItemName.includes(normalizedNeed) ||
+        normalizedNeed.includes(normalizedItemName)
+      );
+    });
+
+    if (!matchingItem) {
+      setActiveTab('inventory');
+      toast.info('No direct inventory match found. Pick a medicine from Inventory and click Donate.');
+      return;
+    }
+
+    setPreferredNgoNeedId(need.id);
+    setSelectedInventoryItem(matchingItem);
     setDonateModalOpen(true);
   };
 
@@ -596,6 +623,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
 
   const pendingIncomingRedistributions = incomingRedistributions.filter((item) => item.status === 'pending');
   const pendingOutgoingRedistributions = outgoingRedistributions.filter((item) => item.status === 'pending');
+  const aiRedistributionSuggestions = mlInsights?.redistributionSuggestions || [];
   const assignedWasteRequests = wasteRequests.filter((item) => item.status === 'assigned');
   const completedWasteRequests = wasteRequests.filter((item) => item.status === 'completed');
 
@@ -1134,6 +1162,78 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
         )}
 
         {activeTab === 'redistribution' && (
+        <>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45 }}
+          className="mb-6"
+        >
+          <Card className="p-6 clay border border-teal-100/60">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl">AI Redistribution Suggestions</h2>
+                <p className="text-sm text-gray-500">Model-driven transfer recommendations</p>
+              </div>
+              <Badge className="bg-teal-100 text-teal-700">{aiRedistributionSuggestions.length} suggestions</Badge>
+            </div>
+
+            {aiRedistributionSuggestions.length === 0 && (
+              <div className="p-4 text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-xl">
+                No AI redistribution suggestions available right now. Try refreshing insights or checking inventory risk status.
+              </div>
+            )}
+
+            <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+              {aiRedistributionSuggestions.map((suggestion) => {
+                const topTarget = suggestion.targetRetailers?.[0];
+                const actionKey = topTarget
+                  ? `${suggestion.inventoryItemId}:${topTarget.retailerId}`
+                  : suggestion.inventoryItemId;
+
+                return (
+                  <div
+                    key={suggestion.inventoryItemId}
+                    className="p-4 rounded-xl border border-teal-100 bg-white"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <p className="text-sm font-semibold text-gray-900">{suggestion.medicineName}</p>
+                      <Badge className="bg-blue-100 text-blue-700">
+                        {Math.round((suggestion.modelConfidence || 0) * 100)}% confidence
+                      </Badge>
+                    </div>
+
+                    <p className="text-xs text-gray-600 mb-1">
+                      Suggested store: {suggestion.modelSuggestedStore || 'N/A'}
+                    </p>
+                    <p className="text-xs text-gray-600 mb-3">
+                      Transfer quantity: {suggestion.recommendedTransferQuantity} • Days to expiry: {suggestion.daysUntilExpiry}
+                    </p>
+
+                    {topTarget ? (
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs text-gray-600">
+                          Target retailer: <span className="font-semibold">{topTarget.retailerName}</span>
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() => createRedistributionFromSuggestion(suggestion)}
+                          disabled={redistributionActionId === actionKey}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          {redistributionActionId === actionKey ? 'Sending...' : 'Send Request'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-amber-700">No eligible target retailer found for this suggestion.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </motion.div>
+
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -1248,6 +1348,7 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
             </Card>
           </motion.div>
         </div>
+        </>
         )}
 
         {activeTab === 'marketplace' && (
@@ -1450,7 +1551,12 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-gray-500">{ngo.items}</span>
-                      <Button size="sm" variant="outline" className="text-pink-600 border-pink-200 hover:bg-pink-50">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-pink-600 border-pink-200 hover:bg-pink-50"
+                        onClick={() => handleDonateFromNeed(ngo)}
+                      >
                         Donate from Inventory
                         <ArrowRight className="w-3 h-3 ml-1" />
                       </Button>
@@ -1645,9 +1751,13 @@ export function DashboardPage({ onNavigate }: { onNavigate: (page: string) => vo
       />
       <DonateToNGOModal
         isOpen={donateModalOpen}
-        onClose={() => setDonateModalOpen(false)}
+        onClose={() => {
+          setDonateModalOpen(false);
+          setPreferredNgoNeedId(undefined);
+        }}
         medicine={selectedInventoryItem}
         onDonated={loadDashboardData}
+        preselectedNeedId={preferredNgoNeedId}
       />
       <ScheduleWastePickupModal
         isOpen={wasteModalOpen}

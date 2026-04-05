@@ -21,15 +21,34 @@ type DonateToNGOModalProps = {
   onClose: () => void;
   medicine: Medicine | null;
   onDonated?: () => void;
+  preselectedNeedId?: string;
 };
 
-export function DonateToNGOModal({ isOpen, onClose, medicine, onDonated }: DonateToNGOModalProps) {
+export function DonateToNGOModal({
+  isOpen,
+  onClose,
+  medicine,
+  onDonated,
+  preselectedNeedId,
+}: DonateToNGOModalProps) {
   const { token } = useAuth();
   const [donationPackets, setDonationPackets] = useState('');
   const [selectedNeedId, setSelectedNeedId] = useState('');
   const [openNeeds, setOpenNeeds] = useState<NgoNeed[]>([]);
   const [loadingNeeds, setLoadingNeeds] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setDonationPackets('');
+      setSelectedNeedId('');
+      return;
+    }
+
+    if (preselectedNeedId) {
+      setSelectedNeedId(preselectedNeedId);
+    }
+  }, [isOpen, preselectedNeedId]);
 
   useEffect(() => {
     if (!isOpen || !token) {
@@ -51,6 +70,17 @@ export function DonateToNGOModal({ isOpen, onClose, medicine, onDonated }: Donat
 
     loadNeeds();
   }, [isOpen, token]);
+
+  useEffect(() => {
+    if (!preselectedNeedId || !openNeeds.length) {
+      return;
+    }
+
+    const hasPreselectedNeed = openNeeds.some((need) => need._id === preselectedNeedId);
+    if (hasPreselectedNeed) {
+      setSelectedNeedId(preselectedNeedId);
+    }
+  }, [openNeeds, preselectedNeedId]);
 
   const selectedNeed = useMemo(
     () => openNeeds.find((need) => need._id === selectedNeedId),
