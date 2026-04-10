@@ -31,14 +31,6 @@ Run backend:
 npm run dev
 ```
 
-Optional seed data:
-
-```bash
-npm run seed:test1
-```
-
-Demo credentials are available in `Backend/TEST1_LOGINS.txt`.
-
 ### 2) Frontend
 
 ```bash
@@ -79,6 +71,4 @@ npm run train:ml
 
 - `npm run dev`: start backend with nodemon
 - `npm run start`: start backend normally
-- `npm run seed:demo`: seed demo dataset
-- `npm run seed:test1`: seed test dataset and accounts
 - `npm run train:ml`: run ML training pipeline
